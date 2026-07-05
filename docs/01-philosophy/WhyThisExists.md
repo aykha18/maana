@@ -1,0 +1,4 @@
+# WhyThisExists
+
+TODO: Add documentation.
+

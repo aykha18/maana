@@ -1,0 +1,4 @@
+# NonGoals
+
+TODO: Add documentation.
+

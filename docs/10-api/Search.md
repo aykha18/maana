@@ -1,0 +1,4 @@
+# Search
+
+TODO: Add documentation.
+

@@ -1,0 +1,4 @@
+# LiterarySchools
+
+TODO: Add documentation.
+

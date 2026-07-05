@@ -1,0 +1,4 @@
+# StateManagement
+
+TODO: Add documentation.
+

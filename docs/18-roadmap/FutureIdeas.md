@@ -1,0 +1,4 @@
+# FutureIdeas
+
+TODO: Add documentation.
+
