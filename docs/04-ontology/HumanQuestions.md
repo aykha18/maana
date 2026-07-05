@@ -69,3 +69,14 @@ Without the question layer, the ontology risks starting too low in the stack.
 
 A human question should be broad, durable, and cross-civilizational.
 It should not be so narrow that it only describes one poem or one editorial note.
+
+## Reader Formation Role
+
+Human questions may also anchor academy lessons and readiness paths.
+
+Examples:
+
+- "Why do humans fear death?"
+- "Can love survive separation?"
+
+These questions help frame preparation in a way that feels existential rather than academic.

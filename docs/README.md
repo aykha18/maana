@@ -6,6 +6,11 @@ The project is knowledge-first. Before building software, we define the ideas, e
 relationships, editorial principles, and decisions that give the product its intellectual
 shape.
 
+Maana now has two explicit product responsibilities:
+
+- help readers discover meaning in poetry
+- help readers cultivate the capacity to discover meaning
+
 ## Purpose
 
 - Provide a single source of truth for product intent and scope.

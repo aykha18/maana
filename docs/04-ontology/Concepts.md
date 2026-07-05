@@ -40,3 +40,16 @@ They help normalize ideas that appear in many forms across poets, languages, and
 If an idea repeatedly appears across poems and affects interpretation, search, or comparison,
 it should likely be modeled as a concept.
 
+## Reader Preparation Role
+
+Some concepts should also be eligible to act as foundations for understanding.
+
+Examples:
+
+- impermanence
+- transcendence
+- ego
+- alienation
+
+This means the product may use concepts not only for ontology and search, but also for
+readiness guidance and short lessons.

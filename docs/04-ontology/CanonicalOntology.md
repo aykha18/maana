@@ -151,6 +151,48 @@ Examples include:
 - transcendence
 - impermanence
 
+### Foundation
+
+A foundation is a prerequisite idea, experience, concept, symbol system, or
+tradition-specific frame that materially improves a reader's readiness to understand
+one poem, poet, or corpus.
+
+Examples include:
+
+- longing
+- impermanence
+- Sufi symbolism
+- Persian literary tradition
+- alienation
+
+A foundation is not a synonym for concept.
+
+- A concept is part of the ontology of meaning.
+- A foundation is a pedagogical relationship between a reader and that meaning.
+
+### Lesson
+
+A lesson is a short editorial learning unit designed to cultivate familiarity with
+one question, experience, concept, or literary frame.
+
+The lesson exists to prepare the reader for better reading, not to replace reading.
+
+### Reflection
+
+A reflection is an optional reader response that connects literary understanding to
+lived experience, memory, or interpretation.
+
+Reflection is not an exam artifact.
+It is a reader-formation artifact.
+
+### Readiness
+
+Readiness is the platform's estimate of how prepared a reader is to receive a poem,
+concept, or question with depth.
+
+Readiness is not mastery and not certification.
+It should be treated as a soft interpretive state derived from exploration.
+
 ### Commentary
 
 Commentary is editorial interpretation that helps the reader understand a poem, verse,
@@ -282,12 +324,17 @@ Examples:
 
 - human question gives rise to human experience
 - human experience contains theme
+- foundation prepares reader for poem
+- foundation may reference concept, experience, symbol, or tradition
 - poet wrote poem
 - poem contains verse
 - poem expresses theme
 - poem evokes human experience
 - poem responds to human question
 - poem uses symbol
+- lesson cultivates familiarity with concept
+- reflection deepens familiarity with experience
+- reader develops readiness for poem
 - symbol relates to concept
 - theme belongs to human experience
 - commentary interprets poem
@@ -348,6 +395,18 @@ This is what enables experience-first discovery across languages and civilizatio
 Together, the Question Graph and Human Experience Graph make the platform more powerful
 than simple theme tagging or full-text search.
 
+## Reader Formation Layer
+
+The ontology should also support a reader-formation layer:
+
+1. foundation
+2. lesson
+3. reflection
+4. readiness
+5. poem return
+
+This layer models how readers become more capable of understanding literature over time.
+
 ## Intellectual Architecture
 
 The conceptual flow should be:
@@ -361,10 +420,11 @@ The conceptual flow should be:
 7. Verse
 8. Word
 9. Literary knowledge graph
-10. Database
-11. API
-12. Frontend
-13. AI
+10. Reader formation layer
+11. Database
+12. API
+13. Frontend
+14. AI
 
 The database implements this architecture. It does not define it.
 

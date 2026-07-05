@@ -66,6 +66,7 @@ through shared ideas instead of shared languages.
 6. Beautiful typography
 7. Progressive disclosure
 8. AI is optional, not foundational
+9. Reader formation is part of the product, not an add-on
 
 ---
 
@@ -159,6 +160,63 @@ Sections:
 10 Literary commentary
 11 Related poems
 12 References
+
+---
+
+## Foundations for Understanding
+
+Before selected poems, the product may surface a small set of prerequisite ideas
+that help readers approach the work more deeply.
+
+Examples:
+- longing
+- impermanence
+- alienation
+- Sufi symbolism
+- Persian literary tradition
+
+Each foundation should be clickable and open a short, editorially grounded explainer.
+
+---
+
+## Human Experience Academy
+
+The product should include short learning units that cultivate familiarity with
+core human experiences, concepts, and questions.
+
+Examples:
+- What is longing?
+- Why do humans grieve?
+- What is irony?
+- What is transcendence?
+
+Each lesson may combine:
+- story
+- poetry
+- philosophy
+- psychology
+- neuroscience
+- religious or civilizational framing
+
+The goal is not testing. The goal is readiness for reading.
+
+---
+
+## Readiness and Reflection
+
+The product should distinguish:
+
+- knowledge
+- readiness
+
+A reader may know a definition but still not be ready to encounter a poem deeply.
+
+Instead of quizzes, the platform should favor reflective prompts and gentle readiness
+states such as:
+
+- new to this idea
+- lightly explored
+- well prepared
 
 ---
 
@@ -399,4 +457,4 @@ This graph becomes the application's primary intellectual asset.
 
 Build the definitive digital atlas of world poetry where readers explore the shared emotional, philosophical, and mystical heritage of humanity.
 
-The competitive advantage is not AI but a deeply curated, structured, interconnected corpus of literary knowledge.
+The competitive advantage is not AI but a deeply curated, structured, interconnected corpus of literary knowledge and a product that cultivates the reader's capacity to receive it.

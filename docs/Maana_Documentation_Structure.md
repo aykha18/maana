@@ -215,6 +215,12 @@ Home.md
 
 PoemPage.md
 
+FoundationsPage.md
+
+AcademyLessonPage.md
+
+MyMapPage.md
+
 PoetPage.md
 
 ThemePage.md
