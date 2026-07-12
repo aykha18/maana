@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     whisper_model: str = Field(default="large-v3", alias="WHISPER_MODEL")
     segment_length: int = Field(default=600, alias="SEGMENT_LENGTH")
     download_retries: int = Field(default=3, alias="DOWNLOAD_RETRIES")
+    ffmpeg_binary: str = Field(default="ffmpeg", alias="FFMPEG_BINARY")
+    audio_sample_rate: int = Field(default=16000, alias="AUDIO_SAMPLE_RATE")
+    audio_channels: int = Field(default=1, alias="AUDIO_CHANNELS")
+    trim_silence: bool = Field(default=False, alias="TRIM_SILENCE")
     output_dir: Path = Field(default=Path("./output"), alias="OUTPUT_DIR")
 
     model_config = SettingsConfigDict(

@@ -15,11 +15,15 @@ class LectureWorkspace:
 
     lecture_root: Path
     source_dir: Path
+    audio_dir: Path
+    chapters_dir: Path
     metadata_dir: Path
     logs_dir: Path
     metadata_path: Path
     raw_info_path: Path
     source_request_path: Path
+    normalized_audio_path: Path
+    chapter_manifest_path: Path
 
     @classmethod
     def build(cls, base_output_dir: Path, metadata: SourceMetadata) -> "LectureWorkspace":
@@ -32,17 +36,42 @@ class LectureWorkspace:
         return cls(
             lecture_root=lecture_root,
             source_dir=lecture_root / "source",
+            audio_dir=lecture_root / "audio",
+            chapters_dir=lecture_root / "audio" / "chapters",
             metadata_dir=metadata_dir,
             logs_dir=lecture_root / "logs",
             metadata_path=metadata_dir / "metadata.json",
             raw_info_path=metadata_dir / "raw_info.json",
             source_request_path=metadata_dir / "source_request.json",
+            normalized_audio_path=lecture_root / "audio" / "normalized.wav",
+            chapter_manifest_path=lecture_root / "audio" / "chapters" / "manifest.json",
+        )
+
+    @classmethod
+    def from_lecture_root(cls, lecture_root: Path) -> "LectureWorkspace":
+        root = lecture_root.expanduser().resolve()
+        metadata_dir = root / "metadata"
+
+        return cls(
+            lecture_root=root,
+            source_dir=root / "source",
+            audio_dir=root / "audio",
+            chapters_dir=root / "audio" / "chapters",
+            metadata_dir=metadata_dir,
+            logs_dir=root / "logs",
+            metadata_path=metadata_dir / "metadata.json",
+            raw_info_path=metadata_dir / "raw_info.json",
+            source_request_path=metadata_dir / "source_request.json",
+            normalized_audio_path=root / "audio" / "normalized.wav",
+            chapter_manifest_path=root / "audio" / "chapters" / "manifest.json",
         )
 
     def ensure_exists(self) -> None:
         """Create all workspace directories."""
 
         self.source_dir.mkdir(parents=True, exist_ok=True)
+        self.audio_dir.mkdir(parents=True, exist_ok=True)
+        self.chapters_dir.mkdir(parents=True, exist_ok=True)
         self.metadata_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 

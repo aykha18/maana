@@ -8,6 +8,7 @@ from typing import Optional
 import typer
 from loguru import logger
 
+from maana_ingest.audio import AudioPreparationError, AudioPreparationService
 from maana_ingest.config import get_settings
 from maana_ingest.core import configure_logging, resolve_output_dir
 from maana_ingest.download import DownloadStageError, YtDlpDownloadService
@@ -93,11 +94,39 @@ def download(
 
 
 @app.command()
-def split(lecture_path: Path) -> None:
-    """Placeholder command for audio segmentation."""
+def split(
+    lecture_path: Path,
+    trim_silence: Optional[bool] = typer.Option(
+        None,
+        "--trim-silence/--no-trim-silence",
+        help="Override silence trimming for normalization.",
+    ),
+    segment_length: Optional[int] = typer.Option(
+        None,
+        "--segment-length",
+        help="Override chapter segment length in seconds.",
+    ),
+) -> None:
+    """Normalize source audio and split it into chapter files."""
 
-    logger.info("Split stage scaffolded for {}", lecture_path)
-    typer.echo(f"Split stage scaffolded for: {lecture_path}")
+    settings = get_settings()
+    service = AudioPreparationService(settings=settings)
+    try:
+        result = service.prepare_audio(
+            lecture_path,
+            trim_silence=trim_silence,
+            segment_length=segment_length,
+        )
+    except AudioPreparationError as exc:
+        logger.error("Audio preparation failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Lecture workspace: {result.lecture_root}")
+    typer.echo(f"Source media: {result.source_media_path}")
+    typer.echo(f"Normalized audio: {result.normalized_audio_path}")
+    typer.echo(f"Chapter manifest: {result.chapter_manifest_path}")
+    typer.echo(f"Chapter count: {len(result.chapters)}")
 
 
 @app.command()
