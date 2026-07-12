@@ -2,3 +2,10 @@
 Thumbs.db
 .vscode/
 *.log
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+Poetry Exploration App.pdf
+Poetry Exploration AppV2.pdf
