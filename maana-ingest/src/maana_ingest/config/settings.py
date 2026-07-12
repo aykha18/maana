@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     )
     whisper_model: str = Field(default="large-v3", alias="WHISPER_MODEL")
     segment_length: int = Field(default=600, alias="SEGMENT_LENGTH")
+    download_retries: int = Field(default=3, alias="DOWNLOAD_RETRIES")
     output_dir: Path = Field(default=Path("./output"), alias="OUTPUT_DIR")
 
     model_config = SettingsConfigDict(

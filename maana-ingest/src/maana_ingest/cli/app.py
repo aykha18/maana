@@ -10,6 +10,8 @@ from loguru import logger
 
 from maana_ingest.config import get_settings
 from maana_ingest.core import configure_logging, resolve_output_dir
+from maana_ingest.download import DownloadStageError, YtDlpDownloadService
+from maana_ingest.models import SourceRequest, SourceType
 
 app = typer.Typer(
     help="Maana ingestion pipeline CLI.",
@@ -31,6 +33,20 @@ def _bootstrap(verbose: bool = False) -> Path:
     return output_dir
 
 
+def _create_download_request(
+    url: str,
+    output_dir: Path | None,
+    source_type: SourceType,
+) -> SourceRequest:
+    settings = get_settings()
+    resolved_output_dir = output_dir or resolve_output_dir(settings)
+    return SourceRequest(
+        url=url,
+        source_type=source_type,
+        output_dir=resolved_output_dir,
+    )
+
+
 @app.callback()
 def main_callback(
     verbose: bool = typer.Option(False, "--verbose", help="Enable verbose logging."),
@@ -41,11 +57,39 @@ def main_callback(
 
 
 @app.command()
-def download(url: str) -> None:
-    """Placeholder command for source intake and download."""
+def download(
+    url: str,
+    output_dir: Optional[Path] = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Override the configured output directory.",
+    ),
+    source_type: SourceType = typer.Option(
+        SourceType.YOUTUBE,
+        "--source-type",
+        help="Source type to ingest.",
+    ),
+) -> None:
+    """Download a source lecture and persist metadata plus media artifacts."""
 
-    logger.info("Download stage scaffolded for {}", url)
-    typer.echo(f"Download stage scaffolded for: {url}")
+    settings = get_settings()
+    request = _create_download_request(url, output_dir, source_type)
+    service = YtDlpDownloadService(settings=settings)
+
+    try:
+        result = service.download(request)
+    except DownloadStageError as exc:
+        logger.error("Download failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Lecture workspace: {result.lecture_root}")
+    typer.echo(f"Source directory: {result.source_dir}")
+    typer.echo(f"Metadata JSON: {result.metadata_path}")
+    if result.raw_media_path is not None:
+        typer.echo(f"Source media: {result.raw_media_path}")
+    typer.echo(f"Skipped existing download: {result.skipped}")
 
 
 @app.command()
