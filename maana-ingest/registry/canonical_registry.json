@@ -1,0 +1,353 @@
+{
+  "version": "2026-07-13.seed.v1",
+  "entries": [
+    {
+      "canonical_id": "theme.unrequited-love",
+      "entity_type": "theme",
+      "label": "unrequited love",
+      "description": "Love marked by distance, asymmetry, or impossibility.",
+      "aliases": [
+        "impossible love"
+      ],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Themes.md"
+      ]
+    },
+    {
+      "canonical_id": "theme.divine-love",
+      "entity_type": "theme",
+      "label": "divine love",
+      "description": "Love directed toward or interpreted through the divine.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Themes.md"
+      ]
+    },
+    {
+      "canonical_id": "theme.impermanence",
+      "entity_type": "theme",
+      "label": "impermanence",
+      "description": "The transience of worldly conditions, beauty, and life.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Themes.md"
+      ]
+    },
+    {
+      "canonical_id": "theme.memory",
+      "entity_type": "theme",
+      "label": "memory",
+      "description": "Remembering, recollection, and the persistence of the past.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Themes.md"
+      ]
+    },
+    {
+      "canonical_id": "theme.ego",
+      "entity_type": "theme",
+      "label": "ego",
+      "description": "Selfhood interpreted as attachment, identity, or resistance.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Themes.md"
+      ]
+    },
+    {
+      "canonical_id": "theme.surrender",
+      "entity_type": "theme",
+      "label": "surrender",
+      "description": "Yielding the self before love, truth, destiny, or the divine.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Themes.md"
+      ]
+    },
+    {
+      "canonical_id": "theme.separation",
+      "entity_type": "theme",
+      "label": "separation",
+      "description": "Distance, estrangement, or removal from the beloved or source.",
+      "aliases": [
+        "distance"
+      ],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Themes.md"
+      ]
+    },
+    {
+      "canonical_id": "experience.love",
+      "entity_type": "human_experience",
+      "label": "love",
+      "description": "Relational attachment, affection, or desire.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/HumanExperiences.md"
+      ]
+    },
+    {
+      "canonical_id": "experience.longing",
+      "entity_type": "human_experience",
+      "label": "longing",
+      "description": "A sustained ache of desire toward an absent fullness.",
+      "aliases": [
+        "yearning"
+      ],
+      "source_notes": [
+        "Seeded from docs/04-ontology/HumanExperiences.md"
+      ]
+    },
+    {
+      "canonical_id": "experience.grief",
+      "entity_type": "human_experience",
+      "label": "grief",
+      "description": "Sorrow in response to loss, absence, or irretrievability.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/HumanExperiences.md"
+      ]
+    },
+    {
+      "canonical_id": "experience.exile",
+      "entity_type": "human_experience",
+      "label": "exile",
+      "description": "Displacement from home, belonging, or spiritual proximity.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/HumanExperiences.md"
+      ]
+    },
+    {
+      "canonical_id": "experience.faith",
+      "entity_type": "human_experience",
+      "label": "faith",
+      "description": "Trust, conviction, or inward reliance amid uncertainty.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/HumanExperiences.md"
+      ]
+    },
+    {
+      "canonical_id": "experience.mortality",
+      "entity_type": "human_experience",
+      "label": "mortality",
+      "description": "Awareness of finitude, death, and the limits of embodied life.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/HumanExperiences.md"
+      ]
+    },
+    {
+      "canonical_id": "experience.silence",
+      "entity_type": "human_experience",
+      "label": "silence",
+      "description": "Quiet, inward pause, or the felt absence of speech.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/HumanExperiences.md"
+      ]
+    },
+    {
+      "canonical_id": "experience.hope",
+      "entity_type": "human_experience",
+      "label": "hope",
+      "description": "Expectation that something meaningful remains possible.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/HumanExperiences.md"
+      ]
+    },
+    {
+      "canonical_id": "symbol.wine",
+      "entity_type": "symbol",
+      "label": "wine",
+      "description": "A layered symbol that may indicate pleasure, ecstasy, transgression, or mystical intoxication.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Symbols.md"
+      ]
+    },
+    {
+      "canonical_id": "symbol.rose",
+      "entity_type": "symbol",
+      "label": "rose",
+      "description": "A symbol of beauty, fragility, allure, and sometimes suffering.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Symbols.md"
+      ]
+    },
+    {
+      "canonical_id": "symbol.mirror",
+      "entity_type": "symbol",
+      "label": "mirror",
+      "description": "A symbol of reflection, self-knowledge, manifestation, or truth.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Symbols.md"
+      ]
+    },
+    {
+      "canonical_id": "symbol.ocean",
+      "entity_type": "symbol",
+      "label": "ocean",
+      "description": "A symbol of vastness, dissolution, depth, and abundance.",
+      "aliases": [
+        "sea"
+      ],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Symbols.md"
+      ]
+    },
+    {
+      "canonical_id": "symbol.candle",
+      "entity_type": "symbol",
+      "label": "candle",
+      "description": "A symbol of illumination, self-consuming devotion, or vulnerable beauty.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Symbols.md"
+      ]
+    },
+    {
+      "canonical_id": "symbol.moth",
+      "entity_type": "symbol",
+      "label": "moth",
+      "description": "A symbol of fatal attraction, annihilating love, or surrender to light.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Symbols.md"
+      ]
+    },
+    {
+      "canonical_id": "symbol.desert",
+      "entity_type": "symbol",
+      "label": "desert",
+      "description": "A symbol of barrenness, wandering, testing, and spiritual exposure.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Symbols.md"
+      ]
+    },
+    {
+      "canonical_id": "concept.absence",
+      "entity_type": "concept",
+      "label": "absence",
+      "description": "The felt presence of what is missing or withdrawn.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Concepts.md"
+      ]
+    },
+    {
+      "canonical_id": "concept.memory",
+      "entity_type": "concept",
+      "label": "memory",
+      "description": "The conceptual persistence of prior presence, meaning, or experience.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Concepts.md"
+      ]
+    },
+    {
+      "canonical_id": "concept.ego",
+      "entity_type": "concept",
+      "label": "ego",
+      "description": "A concept of selfhood, self-attachment, or self-assertion.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Concepts.md"
+      ]
+    },
+    {
+      "canonical_id": "concept.surrender",
+      "entity_type": "concept",
+      "label": "surrender",
+      "description": "A concept of yielding, relinquishment, or letting go.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Concepts.md"
+      ]
+    },
+    {
+      "canonical_id": "concept.transcendence",
+      "entity_type": "concept",
+      "label": "transcendence",
+      "description": "Movement beyond ordinary limitation, perception, or selfhood.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Concepts.md"
+      ]
+    },
+    {
+      "canonical_id": "concept.mortality",
+      "entity_type": "concept",
+      "label": "mortality",
+      "description": "The concept of finitude, perishability, and death-bound existence.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded from docs/04-ontology/Concepts.md"
+      ]
+    },
+    {
+      "canonical_id": "author.ghalib",
+      "entity_type": "author",
+      "label": "Ghalib",
+      "description": "Mirza Ghalib, central Urdu and Persian poet.",
+      "aliases": [
+        "mirza ghalib",
+        "asadullah khan ghalib"
+      ],
+      "source_notes": [
+        "Seeded for Diwan-e-Ghalib pilot"
+      ]
+    },
+    {
+      "canonical_id": "collection.diwan-e-ghalib",
+      "entity_type": "collection",
+      "label": "Diwan-e-Ghalib",
+      "description": "Canonical collection for the initial Ghalib poem pilot.",
+      "aliases": [
+        "diwan ghalib",
+        "diwan-e ghalib"
+      ],
+      "source_notes": [
+        "Seeded for Diwan-e-Ghalib pilot"
+      ]
+    },
+    {
+      "canonical_id": "language.urdu",
+      "entity_type": "language",
+      "label": "Urdu",
+      "description": "Urdu language.",
+      "aliases": [
+        "urdū"
+      ],
+      "source_notes": [
+        "Seeded from Architecture Vision"
+      ]
+    },
+    {
+      "canonical_id": "literary-work.ghazal",
+      "entity_type": "literary_work",
+      "label": "Ghazal",
+      "description": "Poetic form built around autonomous yet resonant couplets.",
+      "aliases": [],
+      "source_notes": [
+        "Seeded for Diwan-e-Ghalib pilot"
+      ]
+    },
+    {
+      "canonical_id": "literary-unit.couplet",
+      "entity_type": "literary_unit",
+      "label": "Couplet",
+      "description": "Smallest meaningful unit for many Urdu ghazals in the pilot.",
+      "aliases": [
+        "sher"
+      ],
+      "source_notes": [
+        "Seeded from Architecture Vision"
+      ]
+    }
+  ]
+}

@@ -8,11 +8,23 @@ from typing import Optional
 import typer
 from loguru import logger
 
+from maana_ingest.annotation import AnnotationError, AnnotationService
 from maana_ingest.audio import AudioPreparationError, AudioPreparationService
+from maana_ingest.cleaning import TranscriptCleaningError, TranscriptCleaningService
 from maana_ingest.config import get_settings
 from maana_ingest.core import configure_logging, resolve_output_dir
 from maana_ingest.download import DownloadStageError, YtDlpDownloadService
 from maana_ingest.models import SourceRequest, SourceType
+from maana_ingest.ontology import OntologyReadinessError, OntologyReadinessService
+from maana_ingest.poems import (
+    PoemCuratorReviewError,
+    PoemCuratorReviewService,
+    PoemDatasetResolutionService,
+    PoemResolutionError,
+    ReviewedPoemDatasetService,
+    ReviewedPoemMaterializationError,
+)
+from maana_ingest.speech import SpeechRecognitionError, SpeechRecognitionService
 
 app = typer.Typer(
     help="Maana ingestion pipeline CLI.",
@@ -130,11 +142,104 @@ def split(
 
 
 @app.command()
-def transcribe(lecture_path: Path) -> None:
-    """Placeholder command for speech recognition."""
+def transcribe(
+    lecture_path: Path,
+    language: Optional[str] = typer.Option(
+        None,
+        "--language",
+        help="Optional language hint passed to the whisper model.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Rebuild transcript outputs even if chapter files already exist.",
+    ),
+) -> None:
+    """Transcribe prepared chapter audio into JSON, text, SRT, and VTT outputs."""
 
-    logger.info("Transcribe stage scaffolded for {}", lecture_path)
-    typer.echo(f"Transcribe stage scaffolded for: {lecture_path}")
+    settings = get_settings()
+    service = SpeechRecognitionService(settings=settings)
+    try:
+        result = service.transcribe_lecture(
+            lecture_path,
+            language=language,
+            force=force,
+            progress_callback=typer.echo,
+        )
+    except SpeechRecognitionError as exc:
+        logger.error("Transcription failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Lecture workspace: {result.lecture_root}")
+    typer.echo(f"Transcription manifest: {result.transcription_manifest_path}")
+    typer.echo(f"Model: {result.model_name}")
+    typer.echo(f"Device: {result.device}")
+    typer.echo(f"Compute type: {result.compute_type}")
+    typer.echo(f"Completed chapters: {result.completed_chapters}")
+    typer.echo(f"Skipped chapters: {result.skipped_chapters}")
+
+
+@app.command()
+def annotate(
+    lecture_path: Path,
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Rebuild annotation outputs even if they already exist.",
+    ),
+) -> None:
+    """Run specialized analyzers over cleaned transcript chapters."""
+
+    settings = get_settings()
+    service = AnnotationService(settings=settings)
+    try:
+        result = service.annotate_lecture(
+            lecture_path,
+            force=force,
+            progress_callback=typer.echo,
+        )
+    except AnnotationError as exc:
+        logger.error("Annotation failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Lecture workspace: {result.lecture_root}")
+    typer.echo(f"Annotation manifest: {result.annotation_manifest_path}")
+    typer.echo(f"Provider: {result.provider}")
+    typer.echo(f"Model: {result.model_name}")
+    typer.echo(f"Prompt version: {result.prompt_version}")
+    typer.echo(f"Completed chapters: {result.completed_chapters}")
+    typer.echo(f"Skipped chapters: {result.skipped_chapters}")
+    typer.echo(f"Chapter count: {result.chapter_count}")
+
+
+@app.command()
+def clean(
+    lecture_path: Path,
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Rebuild cleaned outputs even if they already exist.",
+    ),
+) -> None:
+    """Clean raw ASR transcript outputs into timestamp-aware lecture documents."""
+
+    settings = get_settings()
+    service = TranscriptCleaningService(settings=settings)
+    try:
+        result = service.clean_transcripts(lecture_path, force=force)
+    except TranscriptCleaningError as exc:
+        logger.error("Transcript cleaning failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Lecture workspace: {result.lecture_root}")
+    typer.echo(f"Clean JSON: {result.cleaned_json_path}")
+    typer.echo(f"Clean Markdown: {result.cleaned_markdown_path}")
+    typer.echo(f"Total chapters: {result.total_chapters}")
+    typer.echo(f"Total segments: {result.total_segments}")
+    typer.echo(f"Merged segments: {result.merged_segment_count}")
 
 
 @app.command()
@@ -145,6 +250,166 @@ def process(url: str, output_dir: Optional[Path] = None) -> None:
     if output_dir is not None:
         typer.echo(f"Requested output directory: {output_dir}")
     typer.echo(f"Process stage scaffolded for: {url}")
+
+
+@app.command()
+def assess(
+    lecture_path: Path,
+    prepare_knowledge_manifest: bool = typer.Option(
+        False,
+        "--prepare-knowledge-manifest",
+        help="Bootstrap a Phase 6 knowledge manifest if cleaned and annotated artifacts already exist.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Rebuild the knowledge manifest even if it already exists.",
+    ),
+) -> None:
+    """Assess whether a lecture is ready for knowledge-first ingestion."""
+
+    settings = get_settings()
+    service = OntologyReadinessService(settings=settings)
+    try:
+        assessment = service.assess_lecture(lecture_path)
+        manifest = None
+        if prepare_knowledge_manifest:
+            manifest = service.initialize_knowledge_manifest(lecture_path, force=force)
+    except OntologyReadinessError as exc:
+        logger.error("Ontology readiness assessment failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Lecture workspace: {assessment.lecture_root}")
+    typer.echo(f"Artifact ingestion ready: {assessment.can_start_artifact_ingestion}")
+    typer.echo(f"Knowledge ingestion ready: {assessment.can_start_knowledge_ingestion}")
+    typer.echo(f"Curator UI ready: {assessment.curator_ui_ready}")
+    typer.echo(f"Annotation provider: {assessment.annotation_provider}")
+    typer.echo(f"Summary: {assessment.summary}")
+    typer.echo("Artifacts:")
+    for name, available in assessment.available_artifacts.items():
+        typer.echo(f"- {name}: {available}")
+    if assessment.blockers:
+        typer.echo("Blockers:")
+        for blocker in assessment.blockers:
+            typer.echo(f"- {blocker}")
+    if assessment.next_tasks:
+        typer.echo("Next tasks:")
+        for task in assessment.next_tasks:
+            typer.echo(f"- {task}")
+    if manifest is not None:
+        typer.echo(f"Knowledge manifest: {manifest.manifest_path}")
+        typer.echo(f"Knowledge chapters pending review: {manifest.chapters_pending_review}")
+
+
+@app.command("resolve-poem-dataset")
+def resolve_poem_dataset(
+    dataset_path: Path,
+    output_path: Optional[Path] = typer.Option(
+        None,
+        "--output-path",
+        "-o",
+        help="Optional path for the resolved dataset JSON output.",
+    ),
+) -> None:
+    """Resolve a structured poem dataset against the canonical registry."""
+
+    settings = get_settings()
+    service = PoemDatasetResolutionService(settings=settings)
+    try:
+        result = service.resolve_dataset(dataset_path, output_path=output_path)
+    except PoemResolutionError as exc:
+        logger.error("Poem dataset resolution failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Dataset: {result.dataset_name}")
+    typer.echo(f"Input path: {result.input_path}")
+    typer.echo(f"Output path: {result.output_path}")
+    typer.echo(f"Total poems: {result.total_poems}")
+    typer.echo(f"Total resolutions: {result.total_resolutions}")
+    typer.echo(f"Matched resolutions: {result.matched_resolutions}")
+    typer.echo(f"Proposed new resolutions: {result.proposed_new_resolutions}")
+
+
+@app.command("prepare-poem-review")
+def prepare_poem_review(
+    resolved_dataset_path: Path,
+    output_path: Optional[Path] = typer.Option(
+        None,
+        "--output-path",
+        "-o",
+        help="Optional path for the generated curator review JSON file.",
+    ),
+) -> None:
+    """Prepare a curator review queue from unresolved poem ontology resolutions."""
+
+    settings = get_settings()
+    service = PoemCuratorReviewService(settings=settings)
+    try:
+        review_file = service.generate_review_file(resolved_dataset_path, output_path=output_path)
+    except PoemCuratorReviewError as exc:
+        logger.error("Poem review preparation failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Dataset: {review_file.dataset_name}")
+    typer.echo(f"Resolved dataset: {review_file.resolved_dataset_path}")
+    typer.echo(f"Review path: {review_file.review_path}")
+    typer.echo(f"Total candidates: {review_file.total_candidates}")
+    typer.echo(f"Pending candidates: {review_file.pending_candidates}")
+
+
+@app.command("append-approved-terms")
+def append_approved_terms(review_path: Path) -> None:
+    """Append curator-approved new ontology terms into the canonical registry."""
+
+    settings = get_settings()
+    service = PoemCuratorReviewService(settings=settings)
+    try:
+        result = service.append_approved_terms(review_path)
+    except PoemCuratorReviewError as exc:
+        logger.error("Appending approved terms failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Review path: {result.review_path}")
+    typer.echo(f"Registry path: {result.registry_path}")
+    typer.echo(f"Applied path: {result.applied_path}")
+    typer.echo(f"Appended entries: {result.appended_entries}")
+    typer.echo(f"Skipped existing: {result.skipped_existing}")
+    typer.echo(f"Approved existing: {result.approved_existing}")
+    typer.echo(f"Pending or rejected: {result.pending_or_rejected}")
+
+
+@app.command("materialize-reviewed-poem-dataset")
+def materialize_reviewed_poem_dataset(
+    applied_review_path: Path,
+    output_path: Optional[Path] = typer.Option(
+        None,
+        "--output-path",
+        "-o",
+        help="Optional path for the final reviewed poem dataset JSON.",
+    ),
+) -> None:
+    """Materialize the final reviewed poem dataset from applied curator decisions."""
+
+    settings = get_settings()
+    service = ReviewedPoemDatasetService(settings=settings)
+    try:
+        result = service.materialize_from_applied_review(
+            applied_review_path,
+            output_path=output_path,
+        )
+    except ReviewedPoemMaterializationError as exc:
+        logger.error("Reviewed poem dataset materialization failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Dataset: {result.dataset_name}")
+    typer.echo(f"Output path: {result.output_path}")
+    typer.echo(f"Total poems: {result.total_poems}")
+    typer.echo(f"Fully reviewed poems: {result.fully_reviewed_poems}")
 
 
 def main() -> None:

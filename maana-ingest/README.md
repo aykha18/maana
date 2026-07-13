@@ -4,6 +4,7 @@
 
 It provides the foundational CLI and runtime scaffolding for a production-grade
 pipeline that will convert long-form lectures into structured knowledge assets.
+It now also includes an early poem-pilot resolution lane for canonical ontology testing.
 
 ## Planned Scope
 
@@ -37,6 +38,7 @@ Key settings:
 - `OPENAI_BASE_URL`
 - `WHISPER_MODEL`
 - `SEGMENT_LENGTH`
+- `CANONICAL_REGISTRY_PATH`
 - `OUTPUT_DIR`
 
 ## Commands
@@ -46,8 +48,15 @@ uv run maana --help
 uv run maana download <url>
 uv run maana split <lecture-path>
 uv run maana transcribe <lecture-path>
+uv run maana assess <lecture-path>
+uv run maana resolve-poem-dataset <dataset.json>
+uv run maana prepare-poem-review <resolved-dataset.json>
+uv run maana append-approved-terms <review.json>
+uv run maana materialize-reviewed-poem-dataset <applied-review.json>
 uv run maana process <url>
 ```
+
+`append-approved-terms` also writes an audit file alongside the review JSON so curator decisions remain traceable.
 
 ## Current Status
 

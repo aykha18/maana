@@ -1,0 +1,42 @@
+{
+  "dataset_name": "diwan-e-ghalib-first-10",
+  "source_edition": "replace-with-one-authoritative-edition",
+  "poems": [
+    {
+      "poem_id": "ghalib-001",
+      "title": "replace-with-canonical-title-or-conventional-label",
+      "author": "Ghalib",
+      "collection": "Diwan-e-Ghalib",
+      "source_language": "Urdu",
+      "form": "Ghazal",
+      "literary_unit": "Couplet",
+      "source_edition": "replace-with-one-authoritative-edition",
+      "verses": [
+        {
+          "unit_number": 1,
+          "text": "replace-with-first-couplet"
+        },
+        {
+          "unit_number": 2,
+          "text": "replace-with-second-couplet"
+        }
+      ],
+      "translations": [],
+      "commentary_references": [],
+      "ontology": {
+        "themes": [
+          "memory"
+        ],
+        "human_experiences": [
+          "longing"
+        ],
+        "symbols": [
+          "mirror"
+        ],
+        "concepts": [
+          "absence"
+        ]
+      }
+    }
+  ]
+}
