@@ -1,0 +1,662 @@
+# Ma'na Architecture Vision
+
+Version: 1.0
+
+Author: Ayub Khan
+
+---
+
+# Vision
+
+Ma'na is **not** a poetry application.
+
+Ma'na is **a map of human experience through literature.**
+
+Its purpose is to connect literature across civilizations by discovering the shared structures of human consciousness, experience, symbolism and meaning.
+
+The application should be architected so that adding new languages, poets or literary traditions requires only new parsers and datasets, not redesigning the core platform.
+
+The system must scale naturally from:
+
+Urdu
+↓
+
+Persian
+↓
+
+Arabic
+↓
+
+English
+↓
+
+World Literature
+
+without changing the core ontology.
+
+---
+
+# Core Principle
+
+Never ingest documents.
+
+Always ingest knowledge.
+
+A poem is only a source.
+
+The real product is the knowledge extracted from it.
+
+---
+
+# Canonical Architecture
+
+Literature
+
+↓
+
+Knowledge Extraction
+
+↓
+
+Canonical Ontology
+
+↓
+
+Knowledge Graph
+
+↓
+
+Retrieval
+
+↓
+
+Reader Experience
+
+The ontology is the heart of Ma'na.
+
+Documents are temporary.
+
+Knowledge is permanent.
+
+---
+
+# Canonical Knowledge Objects
+
+The following entities are language-independent.
+
+## Civilization
+
+Examples
+
+- Persian
+- Arabic
+- Urdu
+- English
+- Sanskrit
+- Greek
+
+---
+
+## Language
+
+Examples
+
+- Urdu
+- Persian
+- Arabic
+- English
+
+---
+
+## Author
+
+Examples
+
+- Ghalib
+- Mir
+- Rumi
+- Shakespeare
+- Iqbal
+
+---
+
+## Collection
+
+Examples
+
+- Diwan-e-Ghalib
+- Kulliyat-e-Iqbal
+- Masnavi
+- Sonnets
+
+---
+
+## Literary Work
+
+Examples
+
+- Ghazal
+- Nazm
+- Sonnet
+- Qasida
+- Epic
+- Story
+
+---
+
+## Literary Unit
+
+The smallest meaningful unit.
+
+Examples
+
+Urdu
+
+Couplet
+
+Arabic
+
+Bayt
+
+English
+
+Stanza
+
+Quran
+
+Ayah
+
+Hadith
+
+Hadith
+
+The platform should never assume every work contains couplets.
+
+Each parser maps its literary form into Literary Units.
+
+---
+
+## Vocabulary
+
+Every significant word.
+
+Store
+
+- language
+- origin
+- root
+- meanings
+- examples
+- related words
+
+Vocabulary entries are reusable across every literary work.
+
+---
+
+## Theme
+
+Examples
+
+Love
+
+Death
+
+Time
+
+Memory
+
+Hope
+
+Failure
+
+Beauty
+
+Existence
+
+Identity
+
+Themes are global.
+
+Never language specific.
+
+---
+
+## Human Experience
+
+Examples
+
+Longing
+
+Loneliness
+
+Exile
+
+Unfulfilled Desire
+
+Wonder
+
+Grief
+
+Spiritual Awakening
+
+Human Experiences are one of the primary navigation mechanisms.
+
+---
+
+## Symbol
+
+Examples
+
+Mirror
+
+Wine
+
+Candle
+
+Desert
+
+Ocean
+
+Garden
+
+Every symbol should contain multiple interpretations across traditions.
+
+---
+
+## Concept
+
+Examples
+
+Nothingness
+
+Being
+
+Divine Love
+
+Selfhood
+
+Reality
+
+Illusion
+
+Knowledge
+
+---
+
+## Literary Device
+
+Examples
+
+Paradox
+
+Irony
+
+Metaphor
+
+Hyperbole
+
+Imagery
+
+Contrast
+
+---
+
+## Commentary
+
+Commentary is a first-class entity.
+
+Examples
+
+Ahmed Javed
+
+Academic Commentary
+
+Reader Notes
+
+Future Scholars
+
+Every commentary is linked to the Literary Unit rather than replacing it.
+
+Multiple interpretations should coexist.
+
+---
+
+# Ingestion Philosophy
+
+The ingestion pipeline never stores only markdown.
+
+Instead it converts documents into structured entities.
+
+Document
+
+↓
+
+Parser
+
+↓
+
+Metadata
+
+↓
+
+Literary Units
+
+↓
+
+Vocabulary
+
+↓
+
+Themes
+
+↓
+
+Symbols
+
+↓
+
+Human Experiences
+
+↓
+
+Concepts
+
+↓
+
+Literary Devices
+
+↓
+
+Commentaries
+
+↓
+
+Knowledge Graph
+
+---
+
+# Knowledge Extraction
+
+Extraction should happen in multiple stages.
+
+Never ask one LLM to do everything.
+
+Preferred pipeline
+
+Parser
+
+↓
+
+Entity Extraction
+
+↓
+
+Vocabulary Extraction
+
+↓
+
+Theme Classification
+
+↓
+
+Human Experience Classification
+
+↓
+
+Symbol Extraction
+
+↓
+
+Concept Extraction
+
+↓
+
+Commentary Generation
+
+↓
+
+Human Review
+
+Each stage should produce structured JSON.
+
+---
+
+# Human Review
+
+AI proposes.
+
+Curator approves.
+
+The curator UI should allow
+
+Approve
+
+Reject
+
+Merge
+
+Split
+
+Rename
+
+Create New
+
+Every approved entity becomes canonical.
+
+Future ingestion should reuse canonical entities instead of inventing new ones.
+
+---
+
+# Canonical Registry
+
+Maintain a canonical registry for
+
+Themes
+
+Human Experiences
+
+Symbols
+
+Concepts
+
+Literary Devices
+
+AI should always attempt to map to an existing entity before proposing a new one.
+
+This prevents ontology fragmentation.
+
+---
+
+# Storage
+
+Separate responsibilities.
+
+PostgreSQL
+
+Structured Data
+
+Qdrant
+
+Embeddings
+
+Neo4j
+
+Knowledge Graph
+
+MinIO
+
+Original Sources
+
+Markdown
+
+Audio
+
+PDF
+
+Images
+
+Nothing should ever be discarded.
+
+Always preserve
+
+Original Source
+
+Parsed Source
+
+Extracted Entities
+
+Embeddings
+
+Knowledge Graph
+
+---
+
+# LLM Strategy
+
+The LLM is not the product.
+
+The ontology is the product.
+
+The LLM should be used only where reasoning is required.
+
+Everything deterministic should happen before invoking the LLM.
+
+Examples
+
+Parser
+
+Regex
+
+NER
+
+Embedding Search
+
+Ontology Mapping
+
+Vocabulary Matching
+
+These should execute without the LLM.
+
+---
+
+# Reader Experience
+
+Users should explore literature through
+
+Poets
+
+Themes
+
+Symbols
+
+Concepts
+
+Human Experiences
+
+Commentaries
+
+Lectures
+
+Not merely through documents.
+
+The reader should be able to ask
+
+"I feel lonely after success."
+
+and discover
+
+Poems
+
+Commentaries
+
+Themes
+
+Symbols
+
+Lectures
+
+rather than keyword matches.
+
+---
+
+# Curator Experience
+
+Separate the Curator application from the Reader application.
+
+Curator responsibilities
+
+Review AI suggestions
+
+Merge ontology
+
+Approve entities
+
+Review commentaries
+
+Review lectures
+
+Manage canonical registry
+
+Reader responsibilities
+
+Read
+
+Search
+
+Explore
+
+Discover
+
+Bookmark
+
+Reflect
+
+---
+
+# Multi-language Strategy
+
+Language should be metadata.
+
+The ontology should remain language independent.
+
+Adding Persian, Arabic or English should require only
+
+New Parser
+
+New Tokenizer
+
+New Vocabulary Dataset
+
+The remainder of the architecture should remain unchanged.
+
+---
+
+# Scalability Principles
+
+Design for
+
+20 million literary units
+
+Optimize for
+
+2,000 literary units
+
+The architecture should never require redesign when the corpus grows.
+
+Only infrastructure should scale.
+
+---
+
+# Long-term Vision
+
+Ma'na is building
+
+"A map of human experience through literature."
+
+The objective is not to explain poems.
+
+The objective is to reveal the relationships between ideas, symbols, themes and experiences across civilizations.
+
+Poems are the entry point.
+
+Meaning is the destination.
