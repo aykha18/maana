@@ -9,7 +9,13 @@ from maana_ingest.annotation import AnnotationManifest
 from maana_ingest.cleaning.models import CleanedTranscriptDocument
 from maana_ingest.config import Settings
 from maana_ingest.download import LectureWorkspace
-from maana_ingest.ontology.models import ChapterKnowledgeDraft, KnowledgeManifest, ReadinessAssessment
+from maana_ingest.ontology.claim_bundle import ClaimBundleBuilder
+from maana_ingest.ontology.models import (
+    ChapterKnowledgeDraft,
+    KnowledgeManifest,
+    KnowledgeReviewStatus,
+    ReadinessAssessment,
+)
 from maana_ingest.ontology.resolver import CanonicalRegistryError, CanonicalRegistryResolver
 
 
@@ -22,6 +28,7 @@ class OntologyReadinessService:
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
+        self._claim_bundle_builder = ClaimBundleBuilder()
 
     def assess_lecture(self, lecture_path: Path) -> ReadinessAssessment:
         workspace = self._resolve_workspace(lecture_path)
@@ -116,7 +123,7 @@ class OntologyReadinessService:
         annotation_manifest = self._load_annotation_manifest(workspace.annotation_manifest_path)
         assessment = self.assess_lecture(workspace.lecture_root)
         annotation_lookup = {
-            chapter.chapter_number: chapter.merged_output_path for chapter in annotation_manifest.chapters
+            chapter.chapter_number: chapter for chapter in annotation_manifest.chapters
         }
 
         chapters: list[ChapterKnowledgeDraft] = []
@@ -124,13 +131,39 @@ class OntologyReadinessService:
             chapter_output_dir = workspace.knowledge_chapters_dir / f"chapter-{chapter.chapter_number:03d}"
             chapter_output_dir.mkdir(parents=True, exist_ok=True)
             blockers = []
-            if chapter.chapter_number not in annotation_lookup:
+            merged_annotation = annotation_lookup.get(chapter.chapter_number)
+            claim_bundle_path: Path | None = None
+            claim_count = 0
+            review_status = KnowledgeReviewStatus.PENDING_EXTRACTION
+
+            if merged_annotation is None:
                 blockers.append("No merged annotation output exists for this chapter.")
+            else:
+                claim_bundle_path = chapter_output_dir / "claim_bundle.json"
+                claim_bundle = self._claim_bundle_builder.build_for_chapter(
+                    lecture_root=workspace.lecture_root.resolve(),
+                    source_cleaned_path=workspace.cleaned_transcript_json_path.resolve(),
+                    source_annotation_path=merged_annotation.merged_output_path.resolve(),
+                    bundle_path=claim_bundle_path.resolve(),
+                    chapter=merged_annotation,
+                    provider=annotation_manifest.provider,
+                    prompt_version=annotation_manifest.prompt_version,
+                    model_name=annotation_manifest.model_name,
+                )
+                claim_bundle_path.write_text(
+                    json.dumps(claim_bundle.model_dump(mode="json"), ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+                claim_count = claim_bundle.claim_count
+                review_status = claim_bundle.review_status
 
             draft = ChapterKnowledgeDraft(
                 chapter_number=chapter.chapter_number,
+                review_status=review_status,
                 source_cleaned_path=workspace.cleaned_transcript_json_path.resolve(),
-                source_annotation_path=annotation_lookup.get(chapter.chapter_number),
+                source_annotation_path=merged_annotation.merged_output_path if merged_annotation is not None else None,
+                claim_bundle_path=claim_bundle_path,
+                claim_count=claim_count,
                 blockers=blockers,
             )
             draft_path = chapter_output_dir / "draft.json"

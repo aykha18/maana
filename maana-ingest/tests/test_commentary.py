@@ -2,17 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from shutil import copyfile
 from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
-from maana_ingest.annotation.models import (
-    AnnotationEvidence,
-    AnnotationHit,
-    AnnotationManifest,
-    CitationHit,
-    MergedChapterAnnotation,
-)
+from maana_ingest.annotation.models import AnnotationEvidence, AnnotationHit, AnnotationManifest, MergedChapterAnnotation
 from maana_ingest.cleaning.models import (
     CleanedChapterTranscript,
     CleanedTranscriptDocument,
@@ -21,68 +16,90 @@ from maana_ingest.cleaning.models import (
 from maana_ingest.cli import app
 from maana_ingest.download import LectureWorkspace
 from maana_ingest.models import SourceMetadata
-from maana_ingest.ontology import OntologyReadinessService, ReadinessAssessment
+from maana_ingest.ontology import (
+    CuratorClaimDecision,
+    CuratorOntologyDecision,
+    LectureCommentaryComposer,
+    LectureCuratorReviewService,
+    OntologyReadinessService,
+)
 
 
-def test_assessment_blocks_canonical_ingestion_without_registry_or_curator(tmp_path: Path) -> None:
+def test_commentary_composer_writes_json_and_markdown_for_approved_claims(tmp_path: Path) -> None:
     workspace = _create_annotated_workspace(tmp_path)
-    settings = SimpleNamespace(annotation_provider="openai", canonical_registry_path=None)
-
-    service = OntologyReadinessService(settings=settings)
-    assessment = service.assess_lecture(workspace.lecture_root)
-
-    assert assessment.can_start_artifact_ingestion is True
-    assert assessment.can_start_knowledge_ingestion is False
-    assert assessment.curator_ui_ready is False
-    assert "canonical registry" in " ".join(assessment.blockers).lower()
-    assert "curator ui" in " ".join(assessment.blockers).lower()
-
-
-def test_initialize_knowledge_manifest_bootstraps_draft_files(tmp_path: Path) -> None:
-    workspace = _create_annotated_workspace(tmp_path)
-    registry_path = tmp_path / "canonical-registry.json"
-    registry_path.write_text("{}", encoding="utf-8")
+    registry_path = _copy_registry(tmp_path)
     settings = SimpleNamespace(annotation_provider="openai", canonical_registry_path=registry_path)
 
-    service = OntologyReadinessService(settings=settings)
-    manifest = service.initialize_knowledge_manifest(workspace.lecture_root)
+    readiness = OntologyReadinessService(settings=settings)
+    manifest = readiness.initialize_knowledge_manifest(workspace.lecture_root)
 
-    assert manifest.total_chapters == 1
-    assert manifest.chapters_pending_review == 1
-    assert manifest.ready_for_canonical_ingestion is False
-    assert workspace.knowledge_manifest_path.exists()
-    assert workspace.knowledge_chapters_dir.joinpath("chapter-001", "draft.json").exists()
-    assert workspace.knowledge_chapters_dir.joinpath("chapter-001", "claim_bundle.json").exists()
-    assert manifest.chapters[0].claim_count == 3
-    assert manifest.chapters[0].claim_bundle_path is not None
+    review_service = LectureCuratorReviewService(settings=settings)
+    review = review_service.generate_review_file(manifest.manifest_path)
+    payload = json.loads(review.review_path.read_text(encoding="utf-8"))
+
+    payload["items"][0]["decision"] = CuratorClaimDecision.APPROVE.value
+    payload["items"][0]["reviewed_truth_status"] = "supported"
+    payload["items"][0]["reviewed_by"] = "curator.demo"
+    payload["items"][1]["decision"] = CuratorClaimDecision.APPROVE.value
+    payload["items"][1]["reviewed_truth_status"] = "supported"
+    payload["items"][1]["reviewed_by"] = "curator.demo"
+    payload["items"][1]["ontology_reviews"][0]["decision"] = CuratorOntologyDecision.CREATE_NEW.value
+    payload["items"][1]["ontology_reviews"][0]["approved_label"] = "Shibli"
+
+    review.review_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    review_service.apply_review_file(review.review_path)
+
+    composer = LectureCommentaryComposer(settings=settings)
+    result = composer.compose_from_manifest(manifest.manifest_path)
+
+    assert result.composed_chapters == 1
+    chapter_dir = workspace.knowledge_chapters_dir / "chapter-001"
+    assert chapter_dir.joinpath("commentary.json").exists()
+    assert chapter_dir.joinpath("commentary.md").exists()
+
+    json_payload = json.loads(chapter_dir.joinpath("commentary.json").read_text(encoding="utf-8"))
+    assert json_payload["header"]["commentary_type"] == "canonical_commentary"
+    assert json_payload["header"]["scope_kind"] == "lecture_chapter"
+    assert json_payload["source_references"]["cited_unit_refs"] == ["lecture-chapter:001"]
+    assert json_payload["core_explanation"]["claim_count"] == 2
+    assert "author.shibli" in json_payload["ontology_links"]["canonical_ontology_ids"]
+    section_keys = {section["section_key"] for section in json_payload["optional_sections"]}
+    assert "literal_clarification" in section_keys
+    assert "comparative_references" in section_keys
+    assert json_payload["evidence_posture"]["overall_evidence_posture"] == "directly_evidenced"
+    assert json_payload["provenance"]["ai_involvement"] is True
+    assert json_payload["status_and_disagreement"]["editorial_state"] == "approved"
+
+    markdown = chapter_dir.joinpath("commentary.md").read_text(encoding="utf-8")
+    assert "## Commentary Header" in markdown
+    assert "## Core Explanation Block" in markdown
+    assert "## Optional Commentary Sections" in markdown
+    assert "### Literal Clarification" in markdown
+    assert "### Comparative References" in markdown
+    assert "## Status And Disagreement Block" in markdown
+    assert "author.shibli" in markdown
 
 
-def test_assess_cli_reports_readiness(monkeypatch, tmp_path: Path) -> None:
+def test_compose_lecture_commentary_cli_reports_summary(monkeypatch, tmp_path: Path) -> None:
     runner = CliRunner()
-    expected = ReadinessAssessment(
-        lecture_root=tmp_path / "lectures" / "speaker" / "demo123-title",
-        can_start_artifact_ingestion=True,
-        can_start_knowledge_ingestion=False,
-        curator_ui_ready=False,
-        annotation_provider="mock",
-        available_artifacts={"cleaned_transcript": True, "annotation_manifest": True},
-        blockers=["Curator UI is not implemented."],
-        next_tasks=["Build curator workflows."],
-        summary="Artifact ingestion can continue, but canonical knowledge ingestion must remain gated.",
+
+    expected = SimpleNamespace(
+        lecture_root=tmp_path / "lectures" / "speaker" / "demo",
+        knowledge_manifest_path=tmp_path / "knowledge" / "manifest.json",
+        composed_chapters=1,
+        skipped_chapters=0,
+        chapter_artifacts=[tmp_path / "knowledge" / "chapters" / "chapter-001" / "commentary.json"],
     )
 
-    def fake_assess(self: object, lecture_path: Path) -> ReadinessAssessment:
+    def fake_compose_from_manifest(self: object, knowledge_manifest_path: Path, *, force: bool = False) -> object:
         return expected
 
-    monkeypatch.setattr(OntologyReadinessService, "assess_lecture", fake_assess)
-
-    result = runner.invoke(app, ["assess", str(tmp_path)])
+    monkeypatch.setattr(LectureCommentaryComposer, "compose_from_manifest", fake_compose_from_manifest)
+    result = runner.invoke(app, ["compose-lecture-commentary", str(tmp_path / "knowledge" / "manifest.json")])
 
     assert result.exit_code == 0
-    assert "Artifact ingestion ready: True" in result.stdout
-    assert "Knowledge ingestion ready: False" in result.stdout
-    assert "Curator UI ready: False" in result.stdout
-    assert "Blockers:" in result.stdout
+    assert "Composed chapters: 1" in result.stdout
+    assert "Artifacts:" in result.stdout
 
 
 def _create_annotated_workspace(base_dir: Path) -> LectureWorkspace:
@@ -161,19 +178,10 @@ def _create_annotated_workspace(base_dir: Path) -> LectureWorkspace:
         ],
         poets=[
             AnnotationHit(
-                label="Ghalib",
-                text="غالب",
+                label="Shibli",
+                text="شبلی",
                 confidence=0.95,
-                evidence=[AnnotationEvidence(start=0.0, end=2.0, excerpt="غالب")],
-            )
-        ],
-        citations=[
-            CitationHit(
-                citation="دیوان غالب",
-                resolved_as="Diwan-e-Ghalib",
-                citation_type="book",
-                confidence=0.88,
-                evidence=[AnnotationEvidence(start=0.0, end=2.0, excerpt="دیوان غالب")],
+                evidence=[AnnotationEvidence(start=0.0, end=2.0, excerpt="شبلی")],
             )
         ],
     )
@@ -196,3 +204,13 @@ def _create_annotated_workspace(base_dir: Path) -> LectureWorkspace:
         encoding="utf-8",
     )
     return workspace
+
+
+def _copy_registry(base_dir: Path) -> Path:
+    target = base_dir / "canonical_registry.json"
+    copyfile(_repo_registry_path(), target)
+    return target
+
+
+def _repo_registry_path() -> Path:
+    return Path(__file__).resolve().parents[1] / "registry" / "canonical_registry.json"

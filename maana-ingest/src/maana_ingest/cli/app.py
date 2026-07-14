@@ -15,7 +15,14 @@ from maana_ingest.config import get_settings
 from maana_ingest.core import configure_logging, resolve_output_dir
 from maana_ingest.download import DownloadStageError, YtDlpDownloadService
 from maana_ingest.models import SourceRequest, SourceType
-from maana_ingest.ontology import OntologyReadinessError, OntologyReadinessService
+from maana_ingest.ontology import (
+    LectureCuratorReviewError,
+    LectureCuratorReviewService,
+    LectureCommentaryComposer,
+    LectureCommentaryError,
+    OntologyReadinessError,
+    OntologyReadinessService,
+)
 from maana_ingest.poems import (
     PoemCuratorReviewError,
     PoemCuratorReviewService,
@@ -300,6 +307,88 @@ def assess(
     if manifest is not None:
         typer.echo(f"Knowledge manifest: {manifest.manifest_path}")
         typer.echo(f"Knowledge chapters pending review: {manifest.chapters_pending_review}")
+
+
+@app.command("prepare-lecture-review")
+def prepare_lecture_review(
+    knowledge_manifest_path: Path,
+    output_path: Optional[Path] = typer.Option(
+        None,
+        "--output-path",
+        "-o",
+        help="Optional path for the generated lecture claim review JSON file.",
+    ),
+) -> None:
+    """Prepare a curator review queue from lecture claim bundles."""
+
+    settings = get_settings()
+    service = LectureCuratorReviewService(settings=settings)
+    try:
+        result = service.generate_review_file(knowledge_manifest_path, output_path=output_path)
+    except LectureCuratorReviewError as exc:
+        logger.error("Lecture review preparation failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Lecture workspace: {result.lecture_root}")
+    typer.echo(f"Review path: {result.review_path}")
+    typer.echo(f"Total items: {result.total_items}")
+    typer.echo(f"Pending items: {result.pending_items}")
+
+
+@app.command("apply-lecture-review")
+def apply_lecture_review(review_path: Path) -> None:
+    """Apply curator decisions to lecture claim bundles and ontology candidates."""
+
+    settings = get_settings()
+    service = LectureCuratorReviewService(settings=settings)
+    try:
+        result = service.apply_review_file(review_path)
+    except LectureCuratorReviewError as exc:
+        logger.error("Applying lecture review failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Review path: {result.review_path}")
+    typer.echo(f"Applied path: {result.applied_path}")
+    typer.echo(f"Registry path: {result.registry_path}")
+    typer.echo(f"Approved claims: {result.approved_claims}")
+    typer.echo(f"Rejected claims: {result.rejected_claims}")
+    typer.echo(f"Revision requested: {result.revision_requested_claims}")
+    typer.echo(f"Pending claims: {result.pending_claims}")
+    typer.echo(f"Ontology appended entries: {result.ontology_appended_entries}")
+    typer.echo(f"Ontology approved existing: {result.ontology_approved_existing}")
+    typer.echo(f"Ontology rejected: {result.ontology_rejected}")
+
+
+@app.command("compose-lecture-commentary")
+def compose_lecture_commentary(
+    knowledge_manifest_path: Path,
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Rebuild commentary artifacts even if they already exist.",
+    ),
+) -> None:
+    """Compose per-chapter commentary artifacts from approved lecture claim bundles."""
+
+    settings = get_settings()
+    service = LectureCommentaryComposer(settings=settings)
+    try:
+        result = service.compose_from_manifest(knowledge_manifest_path, force=force)
+    except LectureCommentaryError as exc:
+        logger.error("Commentary composition failed: {}", exc)
+        typer.secho(str(exc), fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from exc
+
+    typer.echo(f"Lecture workspace: {result.lecture_root}")
+    typer.echo(f"Knowledge manifest: {result.knowledge_manifest_path}")
+    typer.echo(f"Composed chapters: {result.composed_chapters}")
+    typer.echo(f"Skipped chapters: {result.skipped_chapters}")
+    if result.chapter_artifacts:
+        typer.echo("Artifacts:")
+        for artifact in result.chapter_artifacts:
+            typer.echo(f"- {artifact}")
 
 
 @app.command("resolve-poem-dataset")
