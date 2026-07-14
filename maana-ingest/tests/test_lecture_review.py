@@ -48,6 +48,10 @@ def test_generate_lecture_review_file_collects_claim_bundle_items(tmp_path: Path
     payload = json.loads(result.review_path.read_text(encoding="utf-8"))
     assert result.total_items == 3
     assert result.pending_items == 3
+    assert payload["items"][0]["interpretation_mode"] == "literal"
+    assert payload["items"][0]["reviewed_interpretation_mode"] == "literal"
+    assert payload["items"][1]["interpretation_mode"] == "comparative"
+    assert payload["items"][1]["reviewed_interpretation_mode"] == "comparative"
     assert payload["items"][1]["ontology_reviews"][0]["submitted_label"] == "Shibli"
     assert payload["items"][2]["ontology_reviews"][0]["submitted_label"] == "Majmua-e-Asrar"
 
@@ -69,12 +73,14 @@ def test_apply_lecture_review_updates_claim_bundle_and_registry(tmp_path: Path) 
 
     review_payload["items"][1]["decision"] = CuratorClaimDecision.APPROVE.value
     review_payload["items"][1]["reviewed_truth_status"] = "supported"
+    review_payload["items"][1]["reviewed_interpretation_mode"] = "philosophical"
     review_payload["items"][1]["ontology_reviews"][0]["decision"] = CuratorOntologyDecision.CREATE_NEW.value
     review_payload["items"][1]["ontology_reviews"][0]["approved_label"] = "Shibli"
     review_payload["items"][1]["ontology_reviews"][0]["description"] = "Pilot author entity approved from lecture review."
 
     review_payload["items"][2]["decision"] = CuratorClaimDecision.REQUEST_REVISION.value
     review_payload["items"][2]["reviewed_by"] = "curator.demo"
+    review_payload["items"][2]["reviewed_interpretation_mode"] = "philosophical"
     review_payload["items"][2]["ontology_reviews"][0]["decision"] = CuratorOntologyDecision.REJECT.value
     review_payload["items"][2]["ontology_reviews"][0]["notes"] = "Collection needs more source verification."
 
@@ -93,9 +99,19 @@ def test_apply_lecture_review_updates_claim_bundle_and_registry(tmp_path: Path) 
         workspace.knowledge_chapters_dir.joinpath("chapter-001", "claim_bundle.json").read_text(encoding="utf-8")
     )
     assert bundle_payload["claims"][0]["review"]["editorial_state"] == "approved"
+    assert bundle_payload["claims"][1]["interpretation_mode"] == "philosophical"
     assert bundle_payload["claims"][1]["ontology_candidates"][0]["canonical_id"] == "author.shibli"
     assert bundle_payload["claims"][2]["review"]["editorial_state"] == "in_review"
+    assert bundle_payload["claims"][2]["interpretation_mode"] == "comparative"
     assert bundle_payload["claims"][2]["ontology_candidates"][0]["mapping_status"] == "unresolved"
+
+    applied_payload = json.loads(review_result.review_path.with_name("manifest.review.applied.json").read_text(encoding="utf-8"))
+    assert applied_payload["items"][1]["original_interpretation_mode"] == "comparative"
+    assert applied_payload["items"][1]["reviewed_interpretation_mode"] == "philosophical"
+    assert applied_payload["items"][1]["resulting_interpretation_mode"] == "philosophical"
+    assert applied_payload["items"][2]["original_interpretation_mode"] == "comparative"
+    assert applied_payload["items"][2]["reviewed_interpretation_mode"] == "philosophical"
+    assert applied_payload["items"][2]["resulting_interpretation_mode"] == "comparative"
 
     manifest_payload = json.loads(workspace.knowledge_manifest_path.read_text(encoding="utf-8"))
     assert manifest_payload["chapters_pending_review"] == 1

@@ -10,5 +10,6 @@ class CoupletDetector(BaseAnnotationAnalyzer[CoupletDetectionOutput]):
     instructions = (
         "Identify quoted or recited couplets, verses, or poetic fragments. "
         "Return JSON with a `couplets` array of objects containing "
-        "`label`, `text`, optional `confidence`, optional `notes`, and `evidence`."
+        "`label`, `text`, optional `confidence`, optional `notes`, optional `interpretation_hints`, "
+        "and `evidence`."
     )

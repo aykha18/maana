@@ -20,7 +20,13 @@ from maana_ingest.ontology.commentary_models import (
     SourceReferenceBlock,
     StatusAndDisagreementBlock,
 )
-from maana_ingest.ontology.models import ContributorKind, EditorialState, KnowledgeManifest, TruthStatus
+from maana_ingest.ontology.models import (
+    ContributorKind,
+    EditorialState,
+    InterpretationMode,
+    KnowledgeManifest,
+    TruthStatus,
+)
 
 
 class LectureCommentaryError(RuntimeError):
@@ -123,6 +129,9 @@ class LectureCommentaryComposer:
                         claim_id=claim.claim_id,
                         statement=claim.statement,
                         claim_type=claim.claim_type.value,
+                        interpretation_mode=(
+                            claim.interpretation_mode.value if claim.interpretation_mode is not None else None
+                        ),
                         source_stage=claim.source_stage,
                         evidence_posture=claim.evidence_posture.value,
                         truth_status=claim.review.truth_status.value,
@@ -282,6 +291,8 @@ class LectureCommentaryComposer:
             lines.append(f"### {claim.claim_id}")
             lines.append("")
             lines.append(f"- Type: {claim.claim_type}")
+            if claim.interpretation_mode:
+                lines.append(f"- Interpretation mode: {claim.interpretation_mode}")
             lines.append(f"- Stage: {claim.source_stage}")
             lines.append(f"- Evidence posture: {claim.evidence_posture}")
             lines.append(f"- Truth status: {claim.truth_status}")
@@ -342,16 +353,56 @@ def _build_summary(claims: list[CommentaryClaimRef]) -> str:
 
 def _build_optional_sections(claims: list[CommentaryClaimRef]) -> list[CommentaryOptionalSection]:
     section_specs = [
-        ("literal_clarification", "Literal Clarification", {"textual"}),
-        ("descriptive_reading", "Descriptive Reading", {"descriptive", "ontological"}),
-        ("interpretive_reading", "Interpretive Reading", {"interpretive"}),
-        ("comparative_references", "Comparative References", {"referential", "relational"}),
-        ("historical_context", "Historical Context", {"historical"}),
-        ("synthetic_reflection", "Synthetic Reflection", {"inferential"}),
+        (
+            "literal_clarification",
+            "Literal Clarification",
+            {InterpretationMode.LITERAL.value, InterpretationMode.PARAPHRASTIC.value},
+            { "textual" },
+        ),
+        (
+            "descriptive_reading",
+            "Descriptive Reading",
+            {InterpretationMode.DESCRIPTIVE.value},
+            {"descriptive", "ontological"},
+        ),
+        (
+            "interpretive_reading",
+            "Interpretive Reading",
+            {
+                InterpretationMode.SYMBOLIC.value,
+                InterpretationMode.EMOTIONAL.value,
+                InterpretationMode.PSYCHOLOGICAL.value,
+                InterpretationMode.EXISTENTIAL.value,
+                InterpretationMode.MYSTICAL.value,
+                InterpretationMode.PHILOSOPHICAL.value,
+            },
+            {"interpretive"},
+        ),
+        (
+            "comparative_references",
+            "Comparative References",
+            {InterpretationMode.COMPARATIVE.value},
+            {"referential", "relational"},
+        ),
+        ("historical_context", "Historical Context", set(), {"historical"}),
+        (
+            "synthetic_reflection",
+            "Synthetic Reflection",
+            {InterpretationMode.PEDAGOGICAL.value, InterpretationMode.SYNTHETIC.value},
+            {"inferential"},
+        ),
     ]
     sections: list[CommentaryOptionalSection] = []
-    for key, title, supported_types in section_specs:
-        section_claims = [claim for claim in claims if claim.claim_type in supported_types]
+    for key, title, supported_modes, supported_types in section_specs:
+        section_claims = [
+            claim
+            for claim in claims
+            if (
+                claim.interpretation_mode in supported_modes
+                if claim.interpretation_mode is not None
+                else claim.claim_type in supported_types
+            )
+        ]
         if not section_claims:
             continue
         sections.append(

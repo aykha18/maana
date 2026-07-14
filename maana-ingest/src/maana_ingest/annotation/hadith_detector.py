@@ -10,5 +10,6 @@ class HadithDetector(BaseAnnotationAnalyzer[HadithDetectionOutput]):
     instructions = (
         "Identify hadith quotations, collections, or clear references to prophetic reports. "
         "Return JSON with a `hadiths` array of objects containing "
-        "`label`, `text`, optional `confidence`, optional `notes`, and `evidence`."
+        "`label`, `text`, optional `confidence`, optional `notes`, optional `interpretation_hints`, "
+        "and `evidence`."
     )

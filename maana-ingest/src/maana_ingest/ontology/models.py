@@ -70,6 +70,23 @@ class ClaimType(StrEnum):
     INFERENTIAL = "inferential"
 
 
+class InterpretationMode(StrEnum):
+    """Finer-grained commentary semantics carried by governed claims."""
+
+    LITERAL = "literal"
+    DESCRIPTIVE = "descriptive"
+    PARAPHRASTIC = "paraphrastic"
+    SYMBOLIC = "symbolic"
+    EMOTIONAL = "emotional"
+    PSYCHOLOGICAL = "psychological"
+    EXISTENTIAL = "existential"
+    MYSTICAL = "mystical"
+    PHILOSOPHICAL = "philosophical"
+    COMPARATIVE = "comparative"
+    PEDAGOGICAL = "pedagogical"
+    SYNTHETIC = "synthetic"
+
+
 class EvidenceType(StrEnum):
     """Evidence families attached to governed claims."""
 
@@ -281,6 +298,7 @@ class GovernedClaim(BaseModel):
 
     claim_id: str
     claim_type: ClaimType
+    interpretation_mode: InterpretationMode | None = None
     subject: ClaimSubjectRef
     statement: str
     source_stage: str
@@ -329,6 +347,8 @@ class CuratorClaimReviewItem(BaseModel):
     chapter_number: int
     claim_id: str
     claim_type: ClaimType
+    interpretation_mode: InterpretationMode | None = None
+    reviewed_interpretation_mode: InterpretationMode | None = None
     statement: str
     source_stage: str
     evidence_posture: EvidencePosture
@@ -360,8 +380,11 @@ class AppliedClaimReviewItem(BaseModel):
     claim_id: str
     decision: CuratorClaimDecision
     status: str
+    original_interpretation_mode: InterpretationMode | None = None
+    reviewed_interpretation_mode: InterpretationMode | None = None
     resulting_editorial_state: EditorialState
     resulting_truth_status: TruthStatus
+    resulting_interpretation_mode: InterpretationMode | None = None
     ontology_results: list[str] = Field(default_factory=list)
     notes: str | None = None
 

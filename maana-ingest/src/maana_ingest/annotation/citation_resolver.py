@@ -11,5 +11,5 @@ class CitationResolver(BaseAnnotationAnalyzer[CitationResolutionOutput]):
         "Identify and resolve citations to books, people, events, or named works where possible. "
         "Return JSON with a `citations` array of objects containing "
         "`citation`, optional `resolved_as`, optional `citation_type`, optional `confidence`, "
-        "optional `notes`, and `evidence`."
+        "optional `notes`, optional `interpretation_hints`, and `evidence`."
     )

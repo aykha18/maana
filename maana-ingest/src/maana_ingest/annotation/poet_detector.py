@@ -10,5 +10,6 @@ class PoetDetector(BaseAnnotationAnalyzer[PoetDetectionOutput]):
     instructions = (
         "Identify named poets or strong poet attributions in the transcript. "
         "Return JSON with a `poets` array of objects containing "
-        "`label`, `text`, optional `confidence`, optional `notes`, and `evidence`."
+        "`label`, `text`, optional `confidence`, optional `notes`, optional `interpretation_hints`, "
+        "and `evidence`."
     )

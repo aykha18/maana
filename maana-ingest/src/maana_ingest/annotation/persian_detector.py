@@ -10,5 +10,6 @@ class PersianDetector(BaseAnnotationAnalyzer[PersianDetectionOutput]):
     instructions = (
         "Identify Persian passages, phrases, or lines distinct from surrounding Urdu commentary. "
         "Return JSON with a `passages` array of objects containing "
-        "`label`, `text`, optional `confidence`, optional `notes`, and `evidence`."
+        "`label`, `text`, optional `confidence`, optional `notes`, optional `interpretation_hints`, "
+        "and `evidence`."
     )

@@ -10,5 +10,6 @@ class QuranDetector(BaseAnnotationAnalyzer[QuranDetectionOutput]):
     instructions = (
         "Identify direct Quran quotations or references to surah and ayah. "
         "Return JSON with a `verses` array of objects containing "
-        "`label`, `text`, optional `confidence`, optional `notes`, and `evidence`."
+        "`label`, `text`, optional `confidence`, optional `notes`, optional `interpretation_hints`, "
+        "and `evidence`."
     )

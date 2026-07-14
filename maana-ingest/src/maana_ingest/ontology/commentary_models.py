@@ -18,6 +18,7 @@ class CommentaryClaimRef(BaseModel):
     claim_id: str
     statement: str
     claim_type: str
+    interpretation_mode: str | None = None
     source_stage: str
     evidence_posture: str
     truth_status: str

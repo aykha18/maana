@@ -22,6 +22,7 @@ class AnnotationHit(BaseModel):
     text: str
     confidence: float | None = None
     notes: str | None = None
+    interpretation_hints: list[str] = Field(default_factory=list)
     evidence: list[AnnotationEvidence] = Field(default_factory=list)
 
 
@@ -33,6 +34,7 @@ class CitationHit(BaseModel):
     citation_type: str | None = None
     confidence: float | None = None
     notes: str | None = None
+    interpretation_hints: list[str] = Field(default_factory=list)
     evidence: list[AnnotationEvidence] = Field(default_factory=list)
 
 

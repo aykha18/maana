@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from maana_ingest.annotation.interpretation_hints import infer_interpretation_hints
 from maana_ingest.annotation.models import AnnotationHit, CitationHit, MergedChapterAnnotation
 from maana_ingest.ontology.models import (
     ApprovalScope,
@@ -19,6 +20,7 @@ from maana_ingest.ontology.models import (
     EvidencePosture,
     EvidenceType,
     GovernedClaim,
+    InterpretationMode,
     KnowledgeReviewStatus,
     ProvenanceRecord,
     ReviewState,
@@ -56,6 +58,7 @@ class ClaimBundleBuilder:
                 analyzer_name="couplet_detector",
                 claim_prefix="couplet",
                 claim_type=ClaimType.TEXTUAL,
+                interpretation_mode=InterpretationMode.LITERAL,
                 statement_prefix="Candidate quoted couplet detected",
                 chapter_number=chapter.chapter_number,
                 subject=subject,
@@ -70,6 +73,7 @@ class ClaimBundleBuilder:
                 analyzer_name="quran_detector",
                 claim_prefix="quran",
                 claim_type=ClaimType.REFERENTIAL,
+                interpretation_mode=InterpretationMode.COMPARATIVE,
                 statement_prefix="Candidate Quran reference detected",
                 chapter_number=chapter.chapter_number,
                 subject=subject,
@@ -84,6 +88,7 @@ class ClaimBundleBuilder:
                 analyzer_name="hadith_detector",
                 claim_prefix="hadith",
                 claim_type=ClaimType.REFERENTIAL,
+                interpretation_mode=InterpretationMode.COMPARATIVE,
                 statement_prefix="Candidate hadith reference detected",
                 chapter_number=chapter.chapter_number,
                 subject=subject,
@@ -98,6 +103,7 @@ class ClaimBundleBuilder:
                 analyzer_name="poet_detector",
                 claim_prefix="poet",
                 claim_type=ClaimType.REFERENTIAL,
+                interpretation_mode=InterpretationMode.COMPARATIVE,
                 statement_prefix="Candidate poet reference detected",
                 chapter_number=chapter.chapter_number,
                 subject=subject,
@@ -113,6 +119,7 @@ class ClaimBundleBuilder:
                 analyzer_name="persian_detector",
                 claim_prefix="persian",
                 claim_type=ClaimType.TEXTUAL,
+                interpretation_mode=InterpretationMode.LITERAL,
                 statement_prefix="Candidate Persian passage detected",
                 chapter_number=chapter.chapter_number,
                 subject=subject,
@@ -152,6 +159,7 @@ class ClaimBundleBuilder:
         analyzer_name: str,
         claim_prefix: str,
         claim_type: ClaimType,
+        interpretation_mode: InterpretationMode | None,
         statement_prefix: str,
         chapter_number: int,
         subject: ClaimSubjectRef,
@@ -227,6 +235,13 @@ class ClaimBundleBuilder:
                 GovernedClaim(
                     claim_id=f"chapter-{chapter_number:03d}-{claim_prefix}-{index:03d}",
                     claim_type=claim_type,
+                    interpretation_mode=_resolve_interpretation_mode(
+                        interpretation_mode,
+                        hit.interpretation_hints,
+                        hit.notes,
+                        hit.label,
+                        hit.text,
+                    ),
                     subject=subject,
                     statement=statement,
                     source_stage="annotation",
@@ -322,6 +337,13 @@ class ClaimBundleBuilder:
                 GovernedClaim(
                     claim_id=f"chapter-{chapter_number:03d}-citation-{index:03d}",
                     claim_type=ClaimType.REFERENTIAL,
+                    interpretation_mode=_resolve_interpretation_mode(
+                        InterpretationMode.COMPARATIVE,
+                        citation.interpretation_hints,
+                        citation.notes,
+                        citation.citation,
+                        citation.resolved_as,
+                    ),
                     subject=subject,
                     statement=f"Candidate citation detected: {citation.citation}. Resolved as: {resolved_text}",
                     source_stage="annotation",
@@ -349,3 +371,31 @@ def _entity_type_from_citation(citation: CitationHit) -> CanonicalEntityType | N
     if citation_type in {"poet", "author"}:
         return CanonicalEntityType.AUTHOR
     return None
+
+
+def _resolve_interpretation_mode(
+    default_mode: InterpretationMode | None,
+    structured_hints: list[str],
+    *signals: str | None,
+) -> InterpretationMode | None:
+    if structured_hints:
+        resolved_hint = _normalize_interpretation_hint(structured_hints[0])
+        if resolved_hint is not None:
+            return resolved_hint
+
+    fallback_hints = infer_interpretation_hints(*signals)
+    if not fallback_hints:
+        return default_mode
+    return _normalize_interpretation_hint(fallback_hints[0]) or default_mode
+
+
+def _normalize_interpretation_hint(value: str | None) -> InterpretationMode | None:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    try:
+        return InterpretationMode(normalized)
+    except ValueError:
+        return None

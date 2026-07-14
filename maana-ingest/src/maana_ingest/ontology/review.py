@@ -86,6 +86,8 @@ class LectureCuratorReviewService:
                         chapter_number=chapter.chapter_number,
                         claim_id=claim.claim_id,
                         claim_type=claim.claim_type,
+                        interpretation_mode=claim.interpretation_mode,
+                        reviewed_interpretation_mode=claim.interpretation_mode,
                         statement=claim.statement,
                         source_stage=claim.source_stage,
                         evidence_posture=claim.evidence_posture,
@@ -168,8 +170,11 @@ class LectureCuratorReviewService:
                             claim_id=claim.claim_id,
                             decision=CuratorClaimDecision.PENDING,
                             status="missing_review_item",
+                            original_interpretation_mode=claim.interpretation_mode,
+                            reviewed_interpretation_mode=None,
                             resulting_editorial_state=claim.review.editorial_state,
                             resulting_truth_status=claim.review.truth_status,
+                            resulting_interpretation_mode=claim.interpretation_mode,
                         )
                     )
                     continue
@@ -182,6 +187,10 @@ class LectureCuratorReviewService:
                     resolver=resolver,
                     ontology_results=ontology_results,
                 )
+                original_interpretation_mode = claim.interpretation_mode
+                reviewed_interpretation_mode = (
+                    review_item.reviewed_interpretation_mode or original_interpretation_mode
+                )
                 ontology_appended_entries += sum(1 for status in ontology_results if status.startswith("appended_new"))
                 ontology_approved_existing += sum(
                     1 for status in ontology_results if status.startswith("approved_existing")
@@ -189,6 +198,7 @@ class LectureCuratorReviewService:
                 ontology_rejected += sum(1 for status in ontology_results if status.startswith("rejected"))
 
                 if review_item.decision is CuratorClaimDecision.APPROVE:
+                    claim.interpretation_mode = reviewed_interpretation_mode
                     claim.review.editorial_state = EditorialState.APPROVED
                     claim.review.truth_status = review_item.reviewed_truth_status or TruthStatus.SUPPORTED
                     claim.review.reviewed_by = review_item.reviewed_by
@@ -222,8 +232,11 @@ class LectureCuratorReviewService:
                         claim_id=claim.claim_id,
                         decision=review_item.decision,
                         status=item_status,
+                        original_interpretation_mode=original_interpretation_mode,
+                        reviewed_interpretation_mode=reviewed_interpretation_mode,
                         resulting_editorial_state=claim.review.editorial_state,
                         resulting_truth_status=claim.review.truth_status,
+                        resulting_interpretation_mode=claim.interpretation_mode,
                         ontology_results=ontology_results,
                         notes=review_item.notes,
                     )

@@ -9,6 +9,7 @@ from maana_ingest.annotation.citation_resolver import CitationResolver
 from maana_ingest.annotation.client import AnnotationClientError, AnnotationClientFactory, AnnotationLLMClient
 from maana_ingest.annotation.couplet_detector import CoupletDetector
 from maana_ingest.annotation.hadith_detector import HadithDetector
+from maana_ingest.annotation.interpretation_hints import enrich_merged_annotation
 from maana_ingest.annotation.merger import merge_chapter_annotations
 from maana_ingest.annotation.models import (
     AnnotationManifest,
@@ -115,6 +116,7 @@ class AnnotationService:
                 persian=analyzer_results["persian_detector"],
                 citations=analyzer_results["citation_resolver"],
             )
+            merged = enrich_merged_annotation(merged)
             merged_output_path.write_text(
                 json.dumps(merged.model_dump(mode="json"), ensure_ascii=False, indent=2),
                 encoding="utf-8",

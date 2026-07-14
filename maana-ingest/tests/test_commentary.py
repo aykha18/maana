@@ -23,6 +23,8 @@ from maana_ingest.ontology import (
     LectureCuratorReviewService,
     OntologyReadinessService,
 )
+from maana_ingest.ontology.commentary import _build_optional_sections
+from maana_ingest.ontology.commentary_models import CommentaryClaimRef
 
 
 def test_commentary_composer_writes_json_and_markdown_for_approved_claims(tmp_path: Path) -> None:
@@ -43,6 +45,7 @@ def test_commentary_composer_writes_json_and_markdown_for_approved_claims(tmp_pa
     payload["items"][1]["decision"] = CuratorClaimDecision.APPROVE.value
     payload["items"][1]["reviewed_truth_status"] = "supported"
     payload["items"][1]["reviewed_by"] = "curator.demo"
+    payload["items"][1]["reviewed_interpretation_mode"] = "philosophical"
     payload["items"][1]["ontology_reviews"][0]["decision"] = CuratorOntologyDecision.CREATE_NEW.value
     payload["items"][1]["ontology_reviews"][0]["approved_label"] = "Shibli"
 
@@ -62,10 +65,13 @@ def test_commentary_composer_writes_json_and_markdown_for_approved_claims(tmp_pa
     assert json_payload["header"]["scope_kind"] == "lecture_chapter"
     assert json_payload["source_references"]["cited_unit_refs"] == ["lecture-chapter:001"]
     assert json_payload["core_explanation"]["claim_count"] == 2
+    assert json_payload["core_explanation"]["claims"][0]["interpretation_mode"] == "literal"
+    assert json_payload["core_explanation"]["claims"][1]["interpretation_mode"] == "philosophical"
     assert "author.shibli" in json_payload["ontology_links"]["canonical_ontology_ids"]
     section_keys = {section["section_key"] for section in json_payload["optional_sections"]}
     assert "literal_clarification" in section_keys
-    assert "comparative_references" in section_keys
+    assert "interpretive_reading" in section_keys
+    assert "comparative_references" not in section_keys
     assert json_payload["evidence_posture"]["overall_evidence_posture"] == "directly_evidenced"
     assert json_payload["provenance"]["ai_involvement"] is True
     assert json_payload["status_and_disagreement"]["editorial_state"] == "approved"
@@ -75,9 +81,73 @@ def test_commentary_composer_writes_json_and_markdown_for_approved_claims(tmp_pa
     assert "## Core Explanation Block" in markdown
     assert "## Optional Commentary Sections" in markdown
     assert "### Literal Clarification" in markdown
-    assert "### Comparative References" in markdown
+    assert "### Interpretive Reading" in markdown
+    assert "Comparative References" not in markdown
     assert "## Status And Disagreement Block" in markdown
+    assert "- Interpretation mode: literal" in markdown
+    assert "- Interpretation mode: philosophical" in markdown
     assert "author.shibli" in markdown
+
+
+def test_optional_sections_prefer_interpretation_mode_over_claim_type() -> None:
+    sections = _build_optional_sections(
+        [
+            CommentaryClaimRef(
+                claim_id="claim-001",
+                statement="The reference is used philosophically rather than comparatively.",
+                claim_type="referential",
+                interpretation_mode="philosophical",
+                source_stage="annotation",
+                evidence_posture="plausibly_supported",
+                truth_status="supported",
+            )
+        ]
+    )
+
+    section_keys = {section.section_key for section in sections}
+    assert "interpretive_reading" in section_keys
+    assert "comparative_references" not in section_keys
+
+
+def test_commentary_composer_uses_extracted_interpretation_mode_defaults(tmp_path: Path) -> None:
+    workspace = _create_annotated_workspace(
+        tmp_path,
+        couplet_hints=["symbolic"],
+        couplet_notes="Fallback note should not be needed when hints exist.",
+        poet_hints=["philosophical"],
+        poet_notes="Fallback note should not be needed when hints exist.",
+    )
+    registry_path = _copy_registry(tmp_path)
+    settings = SimpleNamespace(annotation_provider="openai", canonical_registry_path=registry_path)
+
+    readiness = OntologyReadinessService(settings=settings)
+    manifest = readiness.initialize_knowledge_manifest(workspace.lecture_root)
+
+    review_service = LectureCuratorReviewService(settings=settings)
+    review = review_service.generate_review_file(manifest.manifest_path)
+    payload = json.loads(review.review_path.read_text(encoding="utf-8"))
+
+    payload["items"][0]["decision"] = CuratorClaimDecision.APPROVE.value
+    payload["items"][0]["reviewed_truth_status"] = "supported"
+    payload["items"][1]["decision"] = CuratorClaimDecision.APPROVE.value
+    payload["items"][1]["reviewed_truth_status"] = "supported"
+    payload["items"][1]["ontology_reviews"][0]["decision"] = CuratorOntologyDecision.CREATE_NEW.value
+    payload["items"][1]["ontology_reviews"][0]["approved_label"] = "Shibli"
+    review.review_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    review_service.apply_review_file(review.review_path)
+
+    composer = LectureCommentaryComposer(settings=settings)
+    composer.compose_from_manifest(manifest.manifest_path)
+
+    chapter_dir = workspace.knowledge_chapters_dir / "chapter-001"
+    json_payload = json.loads(chapter_dir.joinpath("commentary.json").read_text(encoding="utf-8"))
+    claim_modes = [claim["interpretation_mode"] for claim in json_payload["core_explanation"]["claims"]]
+    section_keys = {section["section_key"] for section in json_payload["optional_sections"]}
+
+    assert "symbolic" in claim_modes
+    assert "philosophical" in claim_modes
+    assert "literal_clarification" not in section_keys
+    assert "interpretive_reading" in section_keys
 
 
 def test_compose_lecture_commentary_cli_reports_summary(monkeypatch, tmp_path: Path) -> None:
@@ -102,7 +172,14 @@ def test_compose_lecture_commentary_cli_reports_summary(monkeypatch, tmp_path: P
     assert "Artifacts:" in result.stdout
 
 
-def _create_annotated_workspace(base_dir: Path) -> LectureWorkspace:
+def _create_annotated_workspace(
+    base_dir: Path,
+    *,
+    couplet_hints: list[str] | None = None,
+    couplet_notes: str | None = None,
+    poet_hints: list[str] | None = None,
+    poet_notes: str | None = None,
+) -> LectureWorkspace:
     metadata = SourceMetadata(
         title="Dars-e-Ghalib",
         speaker="Ahmed Javed",
@@ -172,6 +249,8 @@ def _create_annotated_workspace(base_dir: Path) -> LectureWorkspace:
             AnnotationHit(
                 label="quoted-couplet",
                 text="دل ہی تو ہے نہ سنگ و خشت",
+                interpretation_hints=couplet_hints or [],
+                notes=couplet_notes,
                 confidence=0.91,
                 evidence=[AnnotationEvidence(start=0.0, end=2.0, excerpt="دل ہی تو ہے")],
             )
@@ -180,6 +259,8 @@ def _create_annotated_workspace(base_dir: Path) -> LectureWorkspace:
             AnnotationHit(
                 label="Shibli",
                 text="شبلی",
+                interpretation_hints=poet_hints or [],
+                notes=poet_notes,
                 confidence=0.95,
                 evidence=[AnnotationEvidence(start=0.0, end=2.0, excerpt="شبلی")],
             )
