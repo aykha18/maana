@@ -15,6 +15,7 @@ from maana_ingest.cleaning.models import (
 )
 from maana_ingest.cli import app
 from maana_ingest.download import LectureWorkspace
+from maana_ingest.exporters import CommentaryExportService
 from maana_ingest.models import SourceMetadata
 from maana_ingest.ontology import (
     CuratorClaimDecision,
@@ -24,7 +25,17 @@ from maana_ingest.ontology import (
     OntologyReadinessService,
 )
 from maana_ingest.ontology.commentary import _build_optional_sections
-from maana_ingest.ontology.commentary_models import CommentaryClaimRef
+from maana_ingest.ontology.commentary_models import (
+    ChapterCommentaryArtifact,
+    CommentaryClaimRef,
+    CommentaryHeader,
+    CoreExplanationBlock,
+    EvidencePostureBlock,
+    OntologyLinksBlock,
+    ProvenanceBlock,
+    SourceReferenceBlock,
+    StatusAndDisagreementBlock,
+)
 
 
 def test_commentary_composer_writes_json_and_markdown_for_approved_claims(tmp_path: Path) -> None:
@@ -86,6 +97,76 @@ def test_commentary_composer_writes_json_and_markdown_for_approved_claims(tmp_pa
     assert "## Status And Disagreement Block" in markdown
     assert "- Interpretation mode: literal" in markdown
     assert "- Interpretation mode: philosophical" in markdown
+    assert "author.shibli" in markdown
+
+
+def test_commentary_export_service_writes_json_and_markdown(tmp_path: Path) -> None:
+    artifact = ChapterCommentaryArtifact(
+        lecture_root=tmp_path,
+        chapter_number=1,
+        output_json_path=tmp_path / "commentary.json",
+        output_markdown_path=tmp_path / "commentary.md",
+        header=CommentaryHeader(
+            commentary_id="chapter-commentary:001",
+            commentary_type="canonical_commentary",
+            scope_kind="lecture_chapter",
+            scope_reference="lecture-chapter:001",
+            contributor_classes=["ai_system"],
+            editorial_state="approved",
+            approval_scope="editorial",
+        ),
+        source_references=SourceReferenceBlock(
+            source_cleaned_path=tmp_path / "cleaned.json",
+            source_claim_bundle_path=tmp_path / "claim_bundle.json",
+            cited_unit_refs=["lecture-chapter:001"],
+        ),
+        core_explanation=CoreExplanationBlock(
+            summary="A governed summary.",
+            claim_count=1,
+            claims=[
+                CommentaryClaimRef(
+                    claim_id="claim-001",
+                    statement="A governed claim.",
+                    claim_type="textual",
+                    interpretation_mode="literal",
+                    source_stage="annotation",
+                    evidence_posture="directly_evidenced",
+                    truth_status="supported",
+                )
+            ],
+        ),
+        evidence_posture=EvidencePostureBlock(
+            overall_evidence_posture="directly_evidenced",
+            claim_postures=["directly_evidenced"],
+        ),
+        provenance=ProvenanceBlock(
+            contributor_classes=["ai_system"],
+            methods=["specialized_annotation_analyzer"],
+            source_stages=["annotation"],
+            reviewers=["curator.demo"],
+            ai_involvement=True,
+        ),
+        ontology_links=OntologyLinksBlock(canonical_ontology_ids=["author.shibli"]),
+        status_and_disagreement=StatusAndDisagreementBlock(
+            editorial_state="approved",
+            truth_statuses=["supported"],
+            has_contested_claims=False,
+            has_ai_generated_content=True,
+            notes=[],
+        ),
+    )
+
+    service = CommentaryExportService()
+    output_paths = service.export(artifact)
+
+    assert artifact.output_json_path in output_paths
+    assert artifact.output_markdown_path in output_paths
+    assert json.loads(artifact.output_json_path.read_text(encoding="utf-8"))["header"]["commentary_id"] == (
+        "chapter-commentary:001"
+    )
+    markdown = artifact.output_markdown_path.read_text(encoding="utf-8")
+    assert "## Commentary Header" in markdown
+    assert "- Interpretation mode: literal" in markdown
     assert "author.shibli" in markdown
 
 
