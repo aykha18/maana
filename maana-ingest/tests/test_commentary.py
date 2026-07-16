@@ -296,6 +296,61 @@ def test_compose_lecture_commentary_cli_reports_summary(monkeypatch, tmp_path: P
     assert "Artifacts:" in result.stdout
 
 
+def test_compose_lecture_commentary_cli_supports_json_only_format(monkeypatch, tmp_path: Path) -> None:
+    runner = CliRunner()
+    captured: dict[str, object] = {}
+
+    def fake_init(self: object, settings: object, *, export_service: object | None = None) -> None:
+        captured["export_service"] = export_service
+
+    expected = SimpleNamespace(
+        lecture_root=tmp_path / "lectures" / "speaker" / "demo",
+        knowledge_manifest_path=tmp_path / "knowledge" / "manifest.json",
+        composed_chapters=1,
+        skipped_chapters=0,
+        chapter_artifacts=[tmp_path / "knowledge" / "chapters" / "chapter-001" / "commentary.json"],
+    )
+
+    def fake_compose_from_manifest(self: object, knowledge_manifest_path: Path, *, force: bool = False) -> object:
+        return expected
+
+    monkeypatch.setattr(LectureCommentaryComposer, "__init__", fake_init)
+    monkeypatch.setattr(LectureCommentaryComposer, "compose_from_manifest", fake_compose_from_manifest)
+    result = runner.invoke(
+        app,
+        [
+            "compose-lecture-commentary",
+            str(tmp_path / "knowledge" / "manifest.json"),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    export_service = captured["export_service"]
+    assert isinstance(export_service, CommentaryExportService)
+    assert [type(exporter) for exporter in export_service._exporters] == [CommentaryJsonExporter]
+    assert str(tmp_path / "knowledge" / "chapters" / "chapter-001" / "commentary.json") in result.stdout
+    assert "commentary.md" not in result.stdout
+
+
+def test_compose_lecture_commentary_cli_rejects_invalid_format(tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app,
+        [
+            "compose-lecture-commentary",
+            str(tmp_path / "knowledge" / "manifest.json"),
+            "--format",
+            "html",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Unsupported commentary export format: html" in result.stdout
+
+
 def _create_annotated_workspace(
     base_dir: Path,
     *,
