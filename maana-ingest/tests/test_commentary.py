@@ -5,6 +5,8 @@ from pathlib import Path
 from shutil import copyfile
 from types import SimpleNamespace
 
+import pytest
+import typer
 from typer.testing import CliRunner
 
 from maana_ingest.annotation.models import AnnotationEvidence, AnnotationHit, AnnotationManifest, MergedChapterAnnotation
@@ -14,8 +16,9 @@ from maana_ingest.cleaning.models import (
     CleanedTranscriptSegment,
 )
 from maana_ingest.cli import app
+from maana_ingest.cli.app import _build_commentary_export_service
 from maana_ingest.download import LectureWorkspace
-from maana_ingest.exporters import CommentaryExportService
+from maana_ingest.exporters import CommentaryExportService, CommentaryJsonExporter
 from maana_ingest.models import SourceMetadata
 from maana_ingest.ontology import (
     CuratorClaimDecision,
@@ -168,6 +171,46 @@ def test_commentary_export_service_writes_json_and_markdown(tmp_path: Path) -> N
     assert "## Commentary Header" in markdown
     assert "- Interpretation mode: literal" in markdown
     assert "author.shibli" in markdown
+
+
+def test_commentary_composer_supports_json_only_export(tmp_path: Path) -> None:
+    workspace = _create_annotated_workspace(tmp_path)
+    registry_path = _copy_registry(tmp_path)
+    settings = SimpleNamespace(annotation_provider="openai", canonical_registry_path=registry_path)
+
+    readiness = OntologyReadinessService(settings=settings)
+    manifest = readiness.initialize_knowledge_manifest(workspace.lecture_root)
+
+    review_service = LectureCuratorReviewService(settings=settings)
+    review = review_service.generate_review_file(manifest.manifest_path)
+    payload = json.loads(review.review_path.read_text(encoding="utf-8"))
+    payload["items"][0]["decision"] = CuratorClaimDecision.APPROVE.value
+    payload["items"][0]["reviewed_truth_status"] = "supported"
+    payload["items"][1]["decision"] = CuratorClaimDecision.APPROVE.value
+    payload["items"][1]["reviewed_truth_status"] = "supported"
+    payload["items"][1]["ontology_reviews"][0]["decision"] = CuratorOntologyDecision.CREATE_NEW.value
+    payload["items"][1]["ontology_reviews"][0]["approved_label"] = "Shibli"
+    review.review_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    review_service.apply_review_file(review.review_path)
+
+    export_service = CommentaryExportService(exporters=[CommentaryJsonExporter()])
+    composer = LectureCommentaryComposer(settings=settings, export_service=export_service)
+
+    first_result = composer.compose_from_manifest(manifest.manifest_path)
+    second_result = composer.compose_from_manifest(manifest.manifest_path)
+
+    chapter_dir = workspace.knowledge_chapters_dir / "chapter-001"
+    assert chapter_dir.joinpath("commentary.json").exists()
+    assert not chapter_dir.joinpath("commentary.md").exists()
+    assert first_result.chapter_artifacts == [chapter_dir / "commentary.json"]
+    assert second_result.composed_chapters == 0
+    assert second_result.skipped_chapters == 1
+    assert second_result.chapter_artifacts == [chapter_dir / "commentary.json"]
+
+
+def test_build_commentary_export_service_rejects_unknown_format() -> None:
+    with pytest.raises(typer.BadParameter):
+        _build_commentary_export_service(["html"])
 
 
 def test_optional_sections_prefer_interpretation_mode_over_claim_type() -> None:

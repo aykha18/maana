@@ -70,10 +70,6 @@ class LectureCommentaryComposer:
             chapter_dir = claim_bundle_path.parent
             output_json_path = chapter_dir / "commentary.json"
             output_markdown_path = chapter_dir / "commentary.md"
-            if not force and output_json_path.exists() and output_markdown_path.exists():
-                skipped += 1
-                chapter_artifacts.append(output_json_path)
-                continue
 
             bundle = self._load_claim_bundle(claim_bundle_path)
             approved_claims = [
@@ -193,9 +189,14 @@ class LectureCommentaryComposer:
                     notes=[],
                 ),
             )
+            target_output_paths = self._export_service.target_output_paths(artifact)
+            if not force and self._export_service.outputs_exist(artifact):
+                skipped += 1
+                chapter_artifacts.extend(target_output_paths)
+                continue
             self._export_service.export(artifact)
             composed += 1
-            chapter_artifacts.append(output_json_path)
+            chapter_artifacts.extend(target_output_paths)
 
         return LectureCommentaryResult(
             lecture_root=manifest.lecture_root,

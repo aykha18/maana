@@ -14,6 +14,11 @@ from maana_ingest.cleaning import TranscriptCleaningError, TranscriptCleaningSer
 from maana_ingest.config import get_settings
 from maana_ingest.core import configure_logging, resolve_output_dir
 from maana_ingest.download import DownloadStageError, YtDlpDownloadService
+from maana_ingest.exporters import (
+    CommentaryExportService,
+    CommentaryJsonExporter,
+    CommentaryMarkdownExporter,
+)
 from maana_ingest.models import SourceRequest, SourceType
 from maana_ingest.ontology import (
     LectureCuratorReviewError,
@@ -65,6 +70,22 @@ def _create_download_request(
         source_type=source_type,
         output_dir=resolved_output_dir,
     )
+
+
+def _build_commentary_export_service(formats: Optional[list[str]] = None) -> CommentaryExportService:
+    requested_formats = formats or ["json", "markdown"]
+    normalized_formats = list(dict.fromkeys(format_name.strip().lower() for format_name in requested_formats))
+    exporters = []
+    for format_name in normalized_formats:
+        if format_name == "json":
+            exporters.append(CommentaryJsonExporter())
+        elif format_name == "markdown":
+            exporters.append(CommentaryMarkdownExporter())
+        else:
+            raise typer.BadParameter(
+                f"Unsupported commentary export format: {format_name}. Use 'json' and/or 'markdown'."
+            )
+    return CommentaryExportService(exporters=exporters)
 
 
 @app.callback()
@@ -369,11 +390,18 @@ def compose_lecture_commentary(
         "--force",
         help="Rebuild commentary artifacts even if they already exist.",
     ),
+    formats: Optional[list[str]] = typer.Option(
+        None,
+        "--format",
+        "-f",
+        help="Repeatable commentary export format. Supported values: json, markdown.",
+    ),
 ) -> None:
     """Compose per-chapter commentary artifacts from approved lecture claim bundles."""
 
     settings = get_settings()
-    service = LectureCommentaryComposer(settings=settings)
+    export_service = _build_commentary_export_service(formats)
+    service = LectureCommentaryComposer(settings=settings, export_service=export_service)
     try:
         result = service.compose_from_manifest(knowledge_manifest_path, force=force)
     except LectureCommentaryError as exc:

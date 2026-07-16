@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from maana_ingest.ontology.commentary_models import ChapterCommentaryArtifact
+if TYPE_CHECKING:
+    from maana_ingest.ontology.commentary_models import ChapterCommentaryArtifact
 
 
 class CommentaryArtifactExporter(Protocol):
@@ -55,7 +56,12 @@ class CommentaryExportService:
     def outputs_exist(self, artifact: ChapterCommentaryArtifact) -> bool:
         """Return whether every configured exporter output already exists."""
 
-        return all(getattr(artifact, exporter.output_path_attr).exists() for exporter in self._exporters)
+        return all(path.exists() for path in self.target_output_paths(artifact))
+
+    def target_output_paths(self, artifact: ChapterCommentaryArtifact) -> list[Path]:
+        """Return the output paths implied by the configured exporters."""
+
+        return [getattr(artifact, exporter.output_path_attr) for exporter in self._exporters]
 
     def export(self, artifact: ChapterCommentaryArtifact) -> list[Path]:
         """Export the artifact through every configured exporter."""
