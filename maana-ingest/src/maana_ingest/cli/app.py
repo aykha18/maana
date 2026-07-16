@@ -72,19 +72,25 @@ def _create_download_request(
     )
 
 
-def _build_commentary_export_service(formats: Optional[list[str]] = None) -> CommentaryExportService:
+def _normalize_commentary_export_formats(formats: Optional[list[str]] = None) -> list[str]:
     requested_formats = formats or ["json", "markdown"]
     normalized_formats = list(dict.fromkeys(format_name.strip().lower() for format_name in requested_formats))
+    for format_name in normalized_formats:
+        if format_name not in {"json", "markdown"}:
+            raise typer.BadParameter(
+                f"Unsupported commentary export format: {format_name}. Use 'json' and/or 'markdown'."
+            )
+    return normalized_formats
+
+
+def _build_commentary_export_service(formats: Optional[list[str]] = None) -> CommentaryExportService:
+    normalized_formats = _normalize_commentary_export_formats(formats)
     exporters = []
     for format_name in normalized_formats:
         if format_name == "json":
             exporters.append(CommentaryJsonExporter())
         elif format_name == "markdown":
             exporters.append(CommentaryMarkdownExporter())
-        else:
-            raise typer.BadParameter(
-                f"Unsupported commentary export format: {format_name}. Use 'json' and/or 'markdown'."
-            )
     return CommentaryExportService(exporters=exporters)
 
 
@@ -400,7 +406,8 @@ def compose_lecture_commentary(
     """Compose per-chapter commentary artifacts from approved lecture claim bundles."""
 
     settings = get_settings()
-    export_service = _build_commentary_export_service(formats)
+    normalized_formats = _normalize_commentary_export_formats(formats)
+    export_service = _build_commentary_export_service(normalized_formats)
     service = LectureCommentaryComposer(settings=settings, export_service=export_service)
     try:
         result = service.compose_from_manifest(knowledge_manifest_path, force=force)
@@ -411,6 +418,7 @@ def compose_lecture_commentary(
 
     typer.echo(f"Lecture workspace: {result.lecture_root}")
     typer.echo(f"Knowledge manifest: {result.knowledge_manifest_path}")
+    typer.echo(f"Export formats: {', '.join(normalized_formats)}")
     typer.echo(f"Composed chapters: {result.composed_chapters}")
     typer.echo(f"Skipped chapters: {result.skipped_chapters}")
     if result.chapter_artifacts:

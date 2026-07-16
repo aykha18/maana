@@ -292,6 +292,7 @@ def test_compose_lecture_commentary_cli_reports_summary(monkeypatch, tmp_path: P
     result = runner.invoke(app, ["compose-lecture-commentary", str(tmp_path / "knowledge" / "manifest.json")])
 
     assert result.exit_code == 0
+    assert "Export formats: json, markdown" in result.stdout
     assert "Composed chapters: 1" in result.stdout
     assert "Artifacts:" in result.stdout
 
@@ -330,12 +331,21 @@ def test_compose_lecture_commentary_cli_supports_json_only_format(monkeypatch, t
     export_service = captured["export_service"]
     assert isinstance(export_service, CommentaryExportService)
     assert [type(exporter) for exporter in export_service._exporters] == [CommentaryJsonExporter]
+    assert "Export formats: json" in result.stdout
     assert str(tmp_path / "knowledge" / "chapters" / "chapter-001" / "commentary.json") in result.stdout
     assert "commentary.md" not in result.stdout
 
 
-def test_compose_lecture_commentary_cli_rejects_invalid_format(tmp_path: Path) -> None:
+def test_compose_lecture_commentary_cli_rejects_invalid_format(monkeypatch, tmp_path: Path) -> None:
     runner = CliRunner()
+    compose_called = False
+
+    def fake_compose_from_manifest(self: object, knowledge_manifest_path: Path, *, force: bool = False) -> object:
+        nonlocal compose_called
+        compose_called = True
+        raise AssertionError("compose_from_manifest should not run for invalid formats")
+
+    monkeypatch.setattr(LectureCommentaryComposer, "compose_from_manifest", fake_compose_from_manifest)
 
     result = runner.invoke(
         app,
@@ -348,7 +358,7 @@ def test_compose_lecture_commentary_cli_rejects_invalid_format(tmp_path: Path) -
     )
 
     assert result.exit_code != 0
-    assert "Unsupported commentary export format: html" in result.stdout
+    assert compose_called is False
 
 
 def _create_annotated_workspace(
