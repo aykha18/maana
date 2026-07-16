@@ -49,8 +49,7 @@ The current workflow produces these core artifacts:
 | claim extraction | `claim_bundle.json` | Stores chapter-level governed claims |
 | curator queue | `manifest.review.json` | Queues claim and ontology decisions for human review |
 | review apply | `manifest.review.applied.json` | Audits what review decisions were applied |
-| commentary | `commentary.json` | Schema-aligned commentary artifact |
-| commentary | `commentary.md` | Human-readable commentary rendering |
+| commentary | `commentary.json` and/or `commentary.md` | Schema-aligned and human-readable commentary artifacts, depending on selected export formats |
 
 ## CLI Sequence
 
@@ -61,6 +60,8 @@ uv run maana assess <lecture-path> --prepare-knowledge-manifest
 uv run maana prepare-lecture-review <knowledge-manifest.json>
 uv run maana apply-lecture-review <manifest.review.json>
 uv run maana compose-lecture-commentary <knowledge-manifest.json>
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format json
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format markdown
 ```
 
 ## Claim Bundle Semantics
@@ -134,6 +135,7 @@ Current composition rules:
 - source references are preserved in the artifact
 - provenance, evidence posture, ontology links, and disagreement markers are surfaced
 - optional sections are routed by `interpretation_mode`, with `claim_type` fallback support for legacy claims
+- default export writes both JSON and Markdown, with repeatable `--format` options available to restrict output
 
 Current optional section routing:
 
@@ -154,8 +156,8 @@ Current optional section routing:
 
 ## Near-Term Follow-Up
 
-The next likely implementation layer after this workflow is export separation:
+The next likely implementation layer after this workflow is export-oriented polish:
 
-- move commentary file writing behind exporter modules
-- expose explicit export-oriented CLI commands
+- consider dedicated export commands or presets for downstream consumers
+- surface export-format behavior more explicitly in operator-facing docs
 - add richer workflow docs for downstream UI and search consumers

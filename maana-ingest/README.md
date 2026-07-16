@@ -22,7 +22,7 @@ Key governed artifacts:
 - `claim_bundle.json`: chapter-level governed claims extracted from annotation output
 - `manifest.review.json`: curator review queue over claims and ontology candidates
 - `manifest.review.applied.json`: audit record of applied review decisions
-- `commentary.json` and `commentary.md`: composed commentary built from approved claims only
+- `commentary.json` and/or `commentary.md`: composed commentary built from approved claims only, depending on selected export formats
 
 ## Requirements
 
@@ -75,6 +75,8 @@ uv run maana assess <lecture-path> --prepare-knowledge-manifest
 uv run maana prepare-lecture-review <knowledge-manifest.json>
 uv run maana apply-lecture-review <manifest.review.json>
 uv run maana compose-lecture-commentary <knowledge-manifest.json>
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format json
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format markdown
 uv run maana process <url>
 ```
 
@@ -115,6 +117,15 @@ review file is applied:
 
 Commentary composition only includes claims whose editorial state is `approved`.
 
+By default, `compose-lecture-commentary` exports both JSON and Markdown. Use
+repeatable `--format` options to restrict output formats explicitly:
+
+```bash
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format json
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format markdown
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format json --format markdown
+```
+
 Optional commentary sections are routed primarily by `interpretation_mode`, with
 `claim_type` used as a fallback for legacy or untyped claims.
 
@@ -140,5 +151,5 @@ The repository is beyond Phase 0 scaffolding. The current implemented baseline i
 - knowledge manifest and governed chapter claim bundle generation
 - curator review queues with ontology decision support
 - applied review audit output with interpretation-mode traceability
-- per-chapter commentary JSON and Markdown generation from approved claims
+- per-chapter commentary export generation from approved claims with selectable JSON and Markdown outputs
 - focused tests for review and commentary routing behavior
