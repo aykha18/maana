@@ -295,6 +295,7 @@ def test_compose_lecture_commentary_cli_reports_summary(monkeypatch, tmp_path: P
     assert "Export formats: json, markdown" in result.stdout
     assert "Composed chapters: 1" in result.stdout
     assert "Artifacts:" in result.stdout
+    assert "chapter-001:" in result.stdout
 
 
 def test_compose_lecture_commentary_cli_supports_json_only_format(monkeypatch, tmp_path: Path) -> None:
@@ -379,6 +380,35 @@ def test_compose_lecture_commentary_cli_supports_all_format_alias(monkeypatch, t
     assert "Export formats: json, markdown" in result.stdout
     assert "commentary.json" in result.stdout
     assert "commentary.md" in result.stdout
+
+
+def test_compose_lecture_commentary_cli_groups_artifacts_by_chapter(monkeypatch, tmp_path: Path) -> None:
+    runner = CliRunner()
+
+    expected = SimpleNamespace(
+        lecture_root=tmp_path / "lectures" / "speaker" / "demo",
+        knowledge_manifest_path=tmp_path / "knowledge" / "manifest.json",
+        composed_chapters=2,
+        skipped_chapters=0,
+        chapter_artifacts=[
+            tmp_path / "knowledge" / "chapters" / "chapter-001" / "commentary.json",
+            tmp_path / "knowledge" / "chapters" / "chapter-001" / "commentary.md",
+            tmp_path / "knowledge" / "chapters" / "chapter-002" / "commentary.json",
+        ],
+    )
+
+    def fake_compose_from_manifest(self: object, knowledge_manifest_path: Path, *, force: bool = False) -> object:
+        return expected
+
+    monkeypatch.setattr(LectureCommentaryComposer, "compose_from_manifest", fake_compose_from_manifest)
+    result = runner.invoke(app, ["compose-lecture-commentary", str(tmp_path / "knowledge" / "manifest.json")])
+
+    assert result.exit_code == 0
+    assert "chapter-001:" in result.stdout
+    assert "chapter-002:" in result.stdout
+    assert result.stdout.index("chapter-001:") < result.stdout.index("chapter-002:")
+    assert result.stdout.count("chapter-001:") == 1
+    assert result.stdout.count("chapter-002:") == 1
 
 
 def test_compose_lecture_commentary_cli_rejects_invalid_format(monkeypatch, tmp_path: Path) -> None:

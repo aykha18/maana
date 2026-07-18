@@ -102,6 +102,24 @@ def _build_commentary_export_service(formats: Optional[list[str]] = None) -> Com
     return CommentaryExportService(exporters=exporters)
 
 
+def _iter_grouped_artifact_lines(artifacts: list[Path]) -> list[str]:
+    grouped_artifacts: dict[str, list[Path]] = {}
+    ordered_keys: list[str] = []
+    for artifact in artifacts:
+        group_key = artifact.parent.name or "."
+        if group_key not in grouped_artifacts:
+            grouped_artifacts[group_key] = []
+            ordered_keys.append(group_key)
+        grouped_artifacts[group_key].append(artifact)
+
+    lines: list[str] = []
+    for group_key in ordered_keys:
+        lines.append(f"{group_key}:")
+        for artifact in grouped_artifacts[group_key]:
+            lines.append(f"- {artifact}")
+    return lines
+
+
 @app.callback()
 def main_callback(
     verbose: bool = typer.Option(False, "--verbose", help="Enable verbose logging."),
@@ -431,8 +449,8 @@ def compose_lecture_commentary(
     typer.echo(f"Skipped chapters: {result.skipped_chapters}")
     if result.chapter_artifacts:
         typer.echo("Artifacts:")
-        for artifact in result.chapter_artifacts:
-            typer.echo(f"- {artifact}")
+        for line in _iter_grouped_artifact_lines(result.chapter_artifacts):
+            typer.echo(line)
 
 
 @app.command("resolve-poem-dataset")
