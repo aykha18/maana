@@ -60,6 +60,7 @@ uv run maana assess <lecture-path> --prepare-knowledge-manifest
 uv run maana prepare-lecture-review <knowledge-manifest.json>
 uv run maana apply-lecture-review <manifest.review.json>
 uv run maana compose-lecture-commentary <knowledge-manifest.json>
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format all
 uv run maana compose-lecture-commentary <knowledge-manifest.json> --format json
 uv run maana compose-lecture-commentary <knowledge-manifest.json> --format markdown
 ```
@@ -135,7 +136,8 @@ Current composition rules:
 - source references are preserved in the artifact
 - provenance, evidence posture, ontology links, and disagreement markers are surfaced
 - optional sections are routed by `interpretation_mode`, with `claim_type` fallback support for legacy claims
-- default export writes both JSON and Markdown, with repeatable `--format` options available to restrict output
+- default export writes both JSON and Markdown, with repeatable `--format` options and an `all` alias available to control output
+- CLI output reports selected export formats and groups emitted artifact paths by chapter
 
 Current optional section routing:
 
@@ -153,6 +155,7 @@ Current optional section routing:
 - `CANONICAL_REGISTRY_PATH` must be configured to approve ontology candidates against the registry.
 - Commentary composition is intentionally downstream of curator review.
 - The current workflow is chapter-scoped even though review and manifest handling operate across a lecture.
+- `--format all` is equivalent to requesting both JSON and Markdown explicitly.
 
 ## Near-Term Follow-Up
 

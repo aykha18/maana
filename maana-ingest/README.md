@@ -75,6 +75,7 @@ uv run maana assess <lecture-path> --prepare-knowledge-manifest
 uv run maana prepare-lecture-review <knowledge-manifest.json>
 uv run maana apply-lecture-review <manifest.review.json>
 uv run maana compose-lecture-commentary <knowledge-manifest.json>
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format all
 uv run maana compose-lecture-commentary <knowledge-manifest.json> --format json
 uv run maana compose-lecture-commentary <knowledge-manifest.json> --format markdown
 uv run maana process <url>
@@ -121,10 +122,14 @@ By default, `compose-lecture-commentary` exports both JSON and Markdown. Use
 repeatable `--format` options to restrict output formats explicitly:
 
 ```bash
+uv run maana compose-lecture-commentary <knowledge-manifest.json> --format all
 uv run maana compose-lecture-commentary <knowledge-manifest.json> --format json
 uv run maana compose-lecture-commentary <knowledge-manifest.json> --format markdown
 uv run maana compose-lecture-commentary <knowledge-manifest.json> --format json --format markdown
 ```
+
+The CLI now also reports the selected export formats and prints artifact paths
+grouped by chapter so multi-chapter runs are easier to scan.
 
 Optional commentary sections are routed primarily by `interpretation_mode`, with
 `claim_type` used as a fallback for legacy or untyped claims.
@@ -152,4 +157,5 @@ The repository is beyond Phase 0 scaffolding. The current implemented baseline i
 - curator review queues with ontology decision support
 - applied review audit output with interpretation-mode traceability
 - per-chapter commentary export generation from approved claims with selectable JSON and Markdown outputs
+- commentary CLI output that reports selected export formats and groups artifact paths by chapter
 - focused tests for review and commentary routing behavior
