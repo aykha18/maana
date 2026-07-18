@@ -16,9 +16,9 @@ from maana_ingest.cleaning.models import (
     CleanedTranscriptSegment,
 )
 from maana_ingest.cli import app
-from maana_ingest.cli.app import _build_commentary_export_service
+from maana_ingest.cli.app import _build_commentary_export_service, _normalize_commentary_export_formats
 from maana_ingest.download import LectureWorkspace
-from maana_ingest.exporters import CommentaryExportService, CommentaryJsonExporter
+from maana_ingest.exporters import CommentaryExportService, CommentaryJsonExporter, CommentaryMarkdownExporter
 from maana_ingest.models import SourceMetadata
 from maana_ingest.ontology import (
     CuratorClaimDecision,
@@ -336,6 +336,51 @@ def test_compose_lecture_commentary_cli_supports_json_only_format(monkeypatch, t
     assert "commentary.md" not in result.stdout
 
 
+def test_compose_lecture_commentary_cli_supports_all_format_alias(monkeypatch, tmp_path: Path) -> None:
+    runner = CliRunner()
+    captured: dict[str, object] = {}
+
+    def fake_init(self: object, settings: object, *, export_service: object | None = None) -> None:
+        captured["export_service"] = export_service
+
+    expected = SimpleNamespace(
+        lecture_root=tmp_path / "lectures" / "speaker" / "demo",
+        knowledge_manifest_path=tmp_path / "knowledge" / "manifest.json",
+        composed_chapters=1,
+        skipped_chapters=0,
+        chapter_artifacts=[
+            tmp_path / "knowledge" / "chapters" / "chapter-001" / "commentary.json",
+            tmp_path / "knowledge" / "chapters" / "chapter-001" / "commentary.md",
+        ],
+    )
+
+    def fake_compose_from_manifest(self: object, knowledge_manifest_path: Path, *, force: bool = False) -> object:
+        return expected
+
+    monkeypatch.setattr(LectureCommentaryComposer, "__init__", fake_init)
+    monkeypatch.setattr(LectureCommentaryComposer, "compose_from_manifest", fake_compose_from_manifest)
+    result = runner.invoke(
+        app,
+        [
+            "compose-lecture-commentary",
+            str(tmp_path / "knowledge" / "manifest.json"),
+            "--format",
+            "all",
+        ],
+    )
+
+    assert result.exit_code == 0
+    export_service = captured["export_service"]
+    assert isinstance(export_service, CommentaryExportService)
+    assert [type(exporter) for exporter in export_service._exporters] == [
+        CommentaryJsonExporter,
+        CommentaryMarkdownExporter,
+    ]
+    assert "Export formats: json, markdown" in result.stdout
+    assert "commentary.json" in result.stdout
+    assert "commentary.md" in result.stdout
+
+
 def test_compose_lecture_commentary_cli_rejects_invalid_format(monkeypatch, tmp_path: Path) -> None:
     runner = CliRunner()
     compose_called = False
@@ -474,6 +519,11 @@ def _create_annotated_workspace(
         encoding="utf-8",
     )
     return workspace
+
+
+def test_normalize_commentary_export_formats_supports_all_alias() -> None:
+    assert _normalize_commentary_export_formats(["all"]) == ["json", "markdown"]
+    assert _normalize_commentary_export_formats(["json", "all"]) == ["json", "markdown"]
 
 
 def _copy_registry(base_dir: Path) -> Path:

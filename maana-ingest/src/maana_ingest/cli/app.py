@@ -74,12 +74,20 @@ def _create_download_request(
 
 def _normalize_commentary_export_formats(formats: Optional[list[str]] = None) -> list[str]:
     requested_formats = formats or ["json", "markdown"]
-    normalized_formats = list(dict.fromkeys(format_name.strip().lower() for format_name in requested_formats))
-    for format_name in normalized_formats:
+    normalized_formats: list[str] = []
+    for raw_format in requested_formats:
+        format_name = raw_format.strip().lower()
+        if format_name == "all":
+            for expanded_name in ("json", "markdown"):
+                if expanded_name not in normalized_formats:
+                    normalized_formats.append(expanded_name)
+            continue
         if format_name not in {"json", "markdown"}:
             raise typer.BadParameter(
-                f"Unsupported commentary export format: {format_name}. Use 'json' and/or 'markdown'."
+                f"Unsupported commentary export format: {format_name}. Use 'json', 'markdown', and/or 'all'."
             )
+        if format_name not in normalized_formats:
+            normalized_formats.append(format_name)
     return normalized_formats
 
 
@@ -400,7 +408,7 @@ def compose_lecture_commentary(
         None,
         "--format",
         "-f",
-        help="Repeatable commentary export format. Supported values: json, markdown.",
+        help="Repeatable commentary export format. Supported values: json, markdown, all.",
     ),
 ) -> None:
     """Compose per-chapter commentary artifacts from approved lecture claim bundles."""
