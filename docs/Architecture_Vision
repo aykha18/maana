@@ -1,6 +1,6 @@
 # Ma'na Architecture Vision
 
-Version: 1.0
+Version: 2.0
 
 Author: Ayub Khan
 
@@ -19,15 +19,19 @@ The application should be architected so that adding new languages, poets or lit
 The system must scale naturally from:
 
 Urdu
+
 ↓
 
 Persian
+
 ↓
 
 Arabic
+
 ↓
 
 English
+
 ↓
 
 World Literature
@@ -48,9 +52,100 @@ The real product is the knowledge extracted from it.
 
 ---
 
+## Semantic Infrastructure
+
+The semantic lexicon is the engine that makes Ma'ana self-organizing.
+
+It is not a dictionary. It is a structured map of semantic concepts — **Worlds** — that literature references, transforms, and reinterprets across civilizations.
+
+### The Semantic Engine
+
+The semantic engine is an agent system that:
+
+- Ingests new Worlds from legacy sources or human editors
+- Discovers relations between Worlds using vector retrieval and graph reasoning
+- Proposes chapter placement, cluster membership, and architectural changes
+- Evaluates chapter ring coherence and detects semantic gaps
+- Validates provenance and quality before any canonical mutation
+
+### World
+
+A World is a semantic concept with multilingual identity.
+
+Examples: خیال (Khayal), عشق (Ishq), تصور (Tasawwur), فراق (Firaq), وصال (Wisal).
+
+Each World carries:
+
+- canonical term and transliteration
+- multilingual glosses (Persian, Urdu, Arabic, English)
+- short definition, literal meaning, expanded meaning
+- semantic dimensions (Quranic, philosophical, literary, modern)
+- central question and central axis
+- semantic weight, maturity, and centrality
+- multiple typed embeddings (definition, meaning, literary, philosophical, questions)
+- relations to other Worlds
+- provenance and version history
+
+### Chapter, Part, Cluster
+
+Worlds are organized into:
+
+- **Chapter** — a major semantic section (e.g., Imagination, Love, Knowledge)
+- **Part** — a subdivision of a Chapter
+- **SemanticCluster** — a finer grouping within a Part
+
+### Semantic Path
+
+A Semantic Path is a first-class entity representing a meaningful journey through Worlds.
+
+Example: The Journey of the Lover: عشق → شوق → طلب → فراق → صبر → وصال → فنا → بقا
+
+Semantic Paths serve simultaneously as:
+- app exploration routes
+- book reading routes
+- podcast series
+- AI teacher lesson sequences
+
+### Three-Layer Truth Model
+
+**PostgreSQL = canonical truth**
+**Neo4j = semantic relationships**
+**Vector index = semantic proximity**
+
+The canonical Ma'na object lives in PostgreSQL. The graph and vector layers are projections, not sources of truth.
+
+### Semantic Projection Service
+
+Whenever a World changes:
+
+```
+Postgres
+  ├──► regenerate embeddings
+  └──► update GraphDB
+```
+
+Events: WORLD_CREATED, WORLD_UPDATED, WORLD_RELATION_CHANGED, WORLD_DELETED.
+
+### Human-in-the-Loop
+
+AI proposes. Human approves.
+
+Automatic: embeddings, duplicate detection, related-world suggestions, vector indexing, graph synchronization.
+Human approval required: chapter movement, chapter splitting, new semantic cluster, canonical relation, deletion, structural redesign.
+
+---
+
 # Canonical Architecture
 
 Literature
+
+↓
+
+Source Preservation
+
+↓
+
+Addressability (Source → Witness → Segment → Unit)
 
 ↓
 
@@ -58,11 +153,27 @@ Knowledge Extraction
 
 ↓
 
+Anchored Claims (Claim + Evidence + Provenance)
+
+↓
+
+Governance (Proposal → Review → Approval → Canonical)
+
+↓
+
 Canonical Ontology
 
 ↓
 
+Semantic Lexicon (Worlds, Chapters, Clusters, Relations)
+
+↓
+
 Knowledge Graph
+
+↓
+
+Commentary Composition
 
 ↓
 
@@ -80,244 +191,194 @@ Knowledge is permanent.
 
 ---
 
-# Canonical Knowledge Objects
+# Immutable Entities
+
+The following entities are language-independent and form the architectural backbone.
+
+## Source
+
+Any preserved input artifact from which Ma'na derives knowledge.
+
+Examples: manuscript, printed edition, lecture audio, transcription, translation, commentary book, scholarly article, oral recitation, user-submitted note.
+
+## Work
+
+An identifiable cultural or intellectual artifact treated as a coherent object of study.
+
+Examples: ghazal, play, novel, sermon, philosophical dialogue, sacred text, speech.
+
+Important: Work is not limited to poem. Poem is only one subtype.
+
+## Witness
+
+A specific textual or transmitted instance of a work.
+
+Examples: edition, manuscript witness, recited version, translated version, edited publication.
+
+## Segment
+
+Any addressable span inside a witness or source.
+
+Examples: couplet, line, stanza, paragraph, scene, chapter, ayah, hadith passage, section, utterance.
+
+The platform should never assume every work contains couplets. Each parser maps its literary form into Segments.
+
+## Unit
+
+A segment that has been editorially recognized as a meaning-bearing interpretive boundary.
+
+All units are segments. Not all segments are units.
+
+Unit is the main attachment point for commentary, interpretation, and ontology mapping.
+
+## Claim
+
+The smallest active knowledge object in Ma'na.
+
+A claim asserts something about a source, work, witness, unit, ontology entity, relation, or interpretation.
+
+Claim types include: factual, descriptive, interpretive, comparative, historical, ontological, relational, editorial, inferential.
+
+Claims are how Ma'na stores meaning without collapsing facts, interpretations, and AI inferences into one layer.
+
+## Evidence
+
+Any support, constraint, or challenge for a claim.
+
+Examples: quoted textual span, lexical evidence, manuscript evidence, historical documentation, prior commentary, comparative passage, interpretive tradition.
+
+Evidence is what keeps claims reviewable rather than rhetorical.
+
+## Provenance Record
+
+The record of where a claim came from.
+
+Includes: contributor, source, method, timestamp, process, model or tool if any, review history.
+
+Provenance is the governance layer of knowledge.
+
+## Contributor
+
+Any agent capable of producing or editing knowledge objects.
+
+Examples: editor, scholar, curator, translator, reader, AI system, ingestion pipeline.
+
+## Tradition
+
+An interpretive, scholarly, linguistic, religious, or intellectual framework within which claims acquire meaning.
+
+Examples: Sufi commentary, modern literary criticism, philological scholarship, classical tafsir, existentialist reading.
+
+## Ontology Entity
+
+A reusable concept in Ma'na's canonical knowledge space.
+
+Examples: theme, symbol, concept, human experience, literary device, civilization, language, author, collection.
+
+Ontology entities are not generated anew for each work. They are stable references against which works and claims can be mapped.
+
+## Relationship
+
+A meaning-bearing connection between two addressable entities.
+
+Examples: a claim supports another claim, a unit evokes an ontology entity, a work belongs to a collection.
+
+## Question
+
+A preserved inquiry that organizes discovery, interpretation, or retrieval.
+
+Examples: What is exile in Ghalib? Why does hope intensify suffering?
+
+## Commentary Document
+
+A composed, human-readable knowledge package built from claims, evidence, provenance, and references.
+
+Commentary is trustworthy when it is grounded in the text, clear about evidence versus interpretation, historically and culturally aware, citation-friendly, and consistent with editorial standards.
+
+---
+
+# Ontology Entities
 
 The following entities are language-independent.
 
-## Civilization
+## Human Question
 
-Examples
+A universal question that human beings ask across civilizations, traditions, and eras.
 
-- Persian
-- Arabic
-- Urdu
-- English
-- Sanskrit
-- Greek
+Examples: What is love? Why do we suffer? What is death? Why does God feel distant?
 
----
-
-## Language
-
-Examples
-
-- Urdu
-- Persian
-- Arabic
-- English
-
----
-
-## Author
-
-Examples
-
-- Ghalib
-- Mir
-- Rumi
-- Shakespeare
-- Iqbal
-
----
-
-## Collection
-
-Examples
-
-- Diwan-e-Ghalib
-- Kulliyat-e-Iqbal
-- Masnavi
-- Sonnets
-
----
-
-## Literary Work
-
-Examples
-
-- Ghazal
-- Nazm
-- Sonnet
-- Qasida
-- Epic
-- Story
-
----
-
-## Literary Unit
-
-The smallest meaningful unit.
-
-Examples
-
-Urdu
-
-Couplet
-
-Arabic
-
-Bayt
-
-English
-
-Stanza
-
-Quran
-
-Ayah
-
-Hadith
-
-Hadith
-
-The platform should never assume every work contains couplets.
-
-Each parser maps its literary form into Literary Units.
-
----
-
-## Vocabulary
-
-Every significant word.
-
-Store
-
-- language
-- origin
-- root
-- meanings
-- examples
-- related words
-
-Vocabulary entries are reusable across every literary work.
-
----
-
-## Theme
-
-Examples
-
-Love
-
-Death
-
-Time
-
-Memory
-
-Hope
-
-Failure
-
-Beauty
-
-Existence
-
-Identity
-
-Themes are global.
-
-Never language specific.
-
----
+Human questions sit above human experiences, themes, and symbols.
 
 ## Human Experience
 
-Examples
+A broad lived condition or existential state used to organize poetry across cultures.
 
-Longing
+Examples: longing, loneliness, exile, unfulfilled desire, wonder, grief, spiritual awakening.
 
-Loneliness
+Human experiences are responses to or embodiments of human questions. They are broader than themes and provide major discovery entry points.
 
-Exile
+## Theme
 
-Unfulfilled Desire
+A recurring literary, philosophical, or spiritual idea expressed within a poem or verse.
 
-Wonder
+Examples: unrequited love, divine love, impermanence, surrender, remembrance.
 
-Grief
-
-Spiritual Awakening
-
-Human Experiences are one of the primary navigation mechanisms.
-
----
+A theme is narrower and more analytical than a human experience.
 
 ## Symbol
 
-Examples
+A concrete image, object, person, or motif that carries layered meaning through repeated literary use.
 
-Mirror
-
-Wine
-
-Candle
-
-Desert
-
-Ocean
-
-Garden
+Examples: mirror, wine, candle, desert, ocean, garden.
 
 Every symbol should contain multiple interpretations across traditions.
 
----
-
 ## Concept
 
-Examples
+An abstract idea used to connect themes, symbols, commentary, and experiences.
 
-Nothingness
-
-Being
-
-Divine Love
-
-Selfhood
-
-Reality
-
-Illusion
-
-Knowledge
-
----
+Examples: nothingness, being, divine love, selfhood, reality, illusion, knowledge.
 
 ## Literary Device
 
-Examples
+A recognized pattern of expression used in literary works.
 
-Paradox
+Examples: paradox, irony, metaphor, hyperbole, imagery, contrast.
 
-Irony
+## Civilization
 
-Metaphor
+A cultural or civilizational tradition within which literature is produced.
 
-Hyperbole
+Examples: Persian, Arabic, Urdu, English, Sanskrit, Greek.
 
-Imagery
+## Language
 
-Contrast
+A natural language in which literary works are expressed.
+
+Examples: Urdu, Persian, Arabic, English.
+
+## Author
+
+The creator or attributed source of one or more literary works.
+
+Examples: Ghalib, Mir, Rumi, Shakespeare, Iqbal.
+
+## Collection
+
+A named grouping of literary works.
+
+Examples: Diwan-e-Ghalib, Kulliyat-e-Iqbal, Masnavi, Sonnets.
 
 ---
 
-## Commentary
+# Four-Layer Meaning Architecture
 
-Commentary is a first-class entity.
+The platform should distinguish four different layers clearly:
 
-Examples
-
-Ahmed Javed
-
-Academic Commentary
-
-Reader Notes
-
-Future Scholars
-
-Every commentary is linked to the Literary Unit rather than replacing it.
-
-Multiple interpretations should coexist.
+1. **Human Question** — the universal question being asked (What is love?)
+2. **Human Experience** — what a person feels or undergoes (longing, hope, loss)
+3. **Theme** — what the poem discusses intellectually (separation, mortality, divine love)
+4. **Symbol** — how the poem expresses meaning through image or motif (wine, rose, dust)
 
 ---
 
@@ -327,51 +388,19 @@ The ingestion pipeline never stores only markdown.
 
 Instead it converts documents into structured entities.
 
-Document
+## Ingestion-To-Governance Flow
 
-↓
+1. Preserve source
+2. Produce addressable units
+3. Generate candidate claims
+4. Attach evidence and provenance
+5. Propose ontology mappings
+6. Place outputs in review queues
+7. Curator approves, rejects, merges, splits, renames, or scopes
+8. Compose commentary artifacts from governed claim sets
+9. Publish approved artifacts for retrieval
 
-Parser
-
-↓
-
-Metadata
-
-↓
-
-Literary Units
-
-↓
-
-Vocabulary
-
-↓
-
-Themes
-
-↓
-
-Symbols
-
-↓
-
-Human Experiences
-
-↓
-
-Concepts
-
-↓
-
-Literary Devices
-
-↓
-
-Commentaries
-
-↓
-
-Knowledge Graph
+Rule: No step before governance may silently mutate the canonical layer.
 
 ---
 
@@ -381,85 +410,49 @@ Extraction should happen in multiple stages.
 
 Never ask one LLM to do everything.
 
-Preferred pipeline
+Preferred pipeline:
 
-Parser
-
-↓
-
-Entity Extraction
-
-↓
-
-Vocabulary Extraction
-
-↓
-
-Theme Classification
-
-↓
-
-Human Experience Classification
-
-↓
-
-Symbol Extraction
-
-↓
-
-Concept Extraction
-
-↓
-
-Commentary Generation
-
-↓
-
-Human Review
+1. Parser
+2. Entity Extraction
+3. Vocabulary Extraction
+4. Theme Classification
+5. Human Experience Classification
+6. Symbol Extraction
+7. Concept Extraction
+8. Commentary Generation
+9. Human Review
 
 Each stage should produce structured JSON.
 
 ---
 
-# Human Review
+# Governance
 
-AI proposes.
+AI proposes. Curator approves.
 
-Curator approves.
+The curator UI should allow:
 
-The curator UI should allow
-
-Approve
-
-Reject
-
-Merge
-
-Split
-
-Rename
-
-Create New
+- Approve
+- Reject
+- Merge
+- Split
+- Rename
+- Create New
 
 Every approved entity becomes canonical.
 
 Future ingestion should reuse canonical entities instead of inventing new ones.
 
----
+## Canonical Registry
 
-# Canonical Registry
+Maintain a canonical registry for:
 
-Maintain a canonical registry for
-
-Themes
-
-Human Experiences
-
-Symbols
-
-Concepts
-
-Literary Devices
+- Themes
+- Human Experiences
+- Symbols
+- Concepts
+- Literary Devices
+- Questions
 
 AI should always attempt to map to an existing entity before proposing a new one.
 
@@ -469,113 +462,173 @@ This prevents ontology fragmentation.
 
 # Storage
 
-Separate responsibilities.
+Separate responsibilities across five layers.
 
-PostgreSQL
+## 1. Source Preservation Layer
 
-Structured Data
+Stores original and derived source artifacts.
 
-Qdrant
+Examples: manuscript images, PDFs, audio, video, OCR output, transcripts, translations, imported commentary texts.
 
-Embeddings
+Best fit: Object storage (MinIO, S3).
 
-Neo4j
+## 2. Structured Governance Layer
 
-Knowledge Graph
+Stores governed objects whose lifecycle, identity, and review state matter.
 
-MinIO
+Examples: works, witnesses, segments, units, claims, evidence records, provenance records, commentary identities, editorial states, version history.
 
-Original Sources
+Best fit: PostgreSQL.
 
-Markdown
+## 3. Ontology And Relation Layer
 
-Audio
+Stores reusable semantic entities and governed relations.
 
-PDF
+Examples: themes, symbols, concepts, human experiences, literary devices, traditions, ontology aliases, merge lineage, semantic relations.
 
-Images
+Best fit: Neo4j.
 
-Nothing should ever be discarded.
+## 4. Commentary Document Layer
 
-Always preserve
+Stores composed human-readable knowledge artifacts.
 
-Original Source
+Examples: unit commentary documents, work commentary documents, question-centered commentary, tradition-specific commentary.
 
-Parsed Source
+Best fit: Document-oriented storage or structured files with durable identifiers.
 
-Extracted Entities
+## 5. Semantic Retrieval Layer
 
-Embeddings
+Stores representations used for embedding search and retrieval-time AI assistance.
 
-Knowledge Graph
+Examples: embeddings, retrieval chunks, semantic summaries, vector indexes, retrieval hints.
+
+Best fit: Qdrant.
+
+Nothing should ever be discarded. Always preserve original source, parsed source, extracted entities, embeddings, and knowledge graph.
 
 ---
 
 # LLM Strategy
 
-The LLM is not the product.
-
-The ontology is the product.
+The LLM is not the product. The ontology is the product.
 
 The LLM should be used only where reasoning is required.
 
 Everything deterministic should happen before invoking the LLM.
 
-Examples
+Examples of deterministic processing (no LLM):
 
-Parser
+- Parser
+- Regex
+- NER
+- Embedding Search
+- Ontology Mapping
+- Vocabulary Matching
 
-Regex
+## AI Principles
 
-NER
+### What AI May Do
 
-Embedding Search
+AI may:
+- extract candidates from source material
+- summarize existing commentary
+- synthesize across multiple approved claims
+- compare works and traditions
+- identify patterns worth human review
+- generate hypotheses
+- assist in explanation
 
-Ontology Mapping
+### What AI Must Not Do Automatically
 
-Vocabulary Matching
+AI must not:
+- invent facts and present them as canonical
+- merge conflicting traditions silently
+- erase uncertainty for fluency
+- convert weak evidence into authoritative interpretation
+- decide canonical ontology unilaterally
+- present speculation as consensus
 
-These should execute without the LLM.
+### AI Must Preserve Auditability
+
+Any AI contribution meaningful enough to influence retrieval, commentary, ontology, or graph relationships must remain inspectable and reversible.
+
+AI-generated extractions, summaries, syntheses, or hypotheses must always remain identifiable as AI-generated unless and until they are explicitly reviewed and adopted through editorial governance.
+
+---
+
+# Retrieval Architecture
+
+Retrieval in Ma'na should not be a single search function.
+
+It should be a layered retrieval architecture that respects knowledge type.
+
+## Retrieval Layers
+
+1. **Source Retrieval** — show the source passage, locate the witness, inspect the original wording
+2. **Commentary Retrieval** — retrieve unit commentary, retrieve question-centered commentary
+3. **Claim Retrieval** — retrieve approved claims, retrieve contested interpretations
+4. **Ontology Retrieval** — find all works linked to an experience, find all uses of a symbol
+5. **Graph Retrieval** — move from concept to concept through governed relations
+6. **Semantic Retrieval** — find passages semantically similar to a feeling or question
+
+Strong Ma'na retrieval should often combine layers, not rely on one.
+
+## Query Modes
+
+Ma'na should support distinct query modes:
+
+1. **Source-Seeking Query** — user wants original text, source evidence, or witness comparison
+2. **Explanation-Seeking Query** — user wants commentary and guided understanding
+3. **Concept-Seeking Query** — user wants ontology-level exploration
+4. **Question-Seeking Query** — user wants the system to engage a human question across works
+5. **Disagreement-Seeking Query** — user wants competing interpretations, not one flattened answer
+6. **Comparative Query** — user wants relationships across authors, traditions, or civilizations
+
+Retrieval should not force all these modes through one index.
 
 ---
 
 # Reader Experience
 
-Users should explore literature through
+Users should explore literature through:
 
-Poets
-
-Themes
-
-Symbols
-
-Concepts
-
-Human Experiences
-
-Commentaries
-
-Lectures
+- Poets
+- Themes
+- Symbols
+- Concepts
+- Human Experiences
+- Questions
+- Commentaries
+- Lectures
+- Foundations
+- Lessons
 
 Not merely through documents.
 
-The reader should be able to ask
+The reader should be able to ask:
 
 "I feel lonely after success."
 
-and discover
+and discover:
 
-Poems
-
-Commentaries
-
-Themes
-
-Symbols
-
-Lectures
+- Poems
+- Commentaries
+- Themes
+- Symbols
+- Human Experiences
+- Lectures
 
 rather than keyword matches.
+
+The reader should be able to see:
+
+- Explanation
+- Source anchoring
+- Uncertainty or contested status where relevant
+- Related concepts and human experiences
+- Path to original source material
+
+The reader must never be presented with unresolved material as final truth, or with all traditions flattened into one answer, or with answers hidden behind opaque sources.
 
 ---
 
@@ -583,33 +636,26 @@ rather than keyword matches.
 
 Separate the Curator application from the Reader application.
 
-Curator responsibilities
+## Curator Responsibilities
 
-Review AI suggestions
+- Review AI suggestions
+- Merge ontology
+- Approve entities
+- Review commentaries
+- Review lectures
+- Manage canonical registry
+- Inspect provenance and AI involvement
+- Merge duplicate ontology proposals
+- Create or approve canonical mappings
 
-Merge ontology
+## Reader Responsibilities
 
-Approve entities
-
-Review commentaries
-
-Review lectures
-
-Manage canonical registry
-
-Reader responsibilities
-
-Read
-
-Search
-
-Explore
-
-Discover
-
-Bookmark
-
-Reflect
+- Read
+- Search
+- Explore
+- Discover
+- Bookmark
+- Reflect
 
 ---
 
@@ -619,13 +665,11 @@ Language should be metadata.
 
 The ontology should remain language independent.
 
-Adding Persian, Arabic or English should require only
+Adding Persian, Arabic or English should require only:
 
-New Parser
-
-New Tokenizer
-
-New Vocabulary Dataset
+- New Parser
+- New Tokenizer
+- New Vocabulary Dataset
 
 The remainder of the architecture should remain unchanged.
 
@@ -633,13 +677,9 @@ The remainder of the architecture should remain unchanged.
 
 # Scalability Principles
 
-Design for
+Design for 20 million literary units.
 
-20 million literary units
-
-Optimize for
-
-2,000 literary units
+Optimize for 2,000 literary units.
 
 The architecture should never require redesign when the corpus grows.
 
@@ -649,7 +689,7 @@ Only infrastructure should scale.
 
 # Long-term Vision
 
-Ma'na is building
+Ma'na is building:
 
 "A map of human experience through literature."
 
