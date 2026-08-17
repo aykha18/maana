@@ -2,7 +2,7 @@
 
 This document defines the major semantic relationships used by the knowledge graph.
 
-## Candidate Relationship Types
+## Literary Relationship Types
 
 - `gives_rise_to`
 - `responds_to`
@@ -18,3 +18,42 @@ This document defines the major semantic relationships used by the knowledge gra
 - `shares_theme_with`
 - `shares_symbol_with`
 - `associated_with_civilization`
+
+## Semantic Relationship Types
+
+### Hierarchical
+- `PART_OF`
+- `CONTAINS`
+- `BELONGS_TO`
+
+### Semantic
+- `RELATED_TO`
+- `CONTRASTS_WITH`
+- `OPPOSITE_OF`
+- `DEEPENS`
+- `PRECEDES`
+- `FOLLOWS`
+- `EXPANDS`
+- `CONTAINS`
+
+### Linguistic
+- `WORD_FAMILY`
+- `DERIVED_FROM`
+- `SYNONYM_OF`
+- `NEAR_SYNONYM_OF`
+- `ANTONYM_OF`
+
+### Literary
+- `USED_BY`
+- `DEVELOPED_BY`
+- `SYMBOLIZED_BY`
+- `THEME_OF`
+
+### Architectural
+- `SEMANTIC_BRIDGE`
+- `RING_LINK`
+- `CHAPTER_ANCHOR`
+- `CLUSTER_ANCHOR`
+- `TRANSITION_TO`
+
+The semantic graph must preserve relationship type. "Related to" is not the same as "opposite of."
