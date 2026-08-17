@@ -47,20 +47,35 @@ Technology serves the intellectual model, not the other way around.
 - `01-philosophy/`
 - `03-domain/`
 - `04-ontology/`
+- `10-api/`
+- `11-backend/`
 - `13-editorial/`
+- `18-roadmap/`
 - `20-decisions/`
 - `21-research/`
 - `23-reference/`
 
 ## Current Strategy
 
-The work now runs on two parallel tracks:
+The work now runs on three parallel tracks:
 
-1. Ontology track: refine `04-ontology/CanonicalOntology.md` carefully over time.
-2. Editorial track: define how one poem is represented, annotated, evidenced, cited,
+1. **Semantic Infrastructure track**: build the World, Chapter, Cluster, and agent system that makes Ma'ana self-organizing.
+2. **Ontology track**: refine `04-ontology/CanonicalOntology.md` carefully over time.
+3. **Editorial track**: define how one poem is represented, annotated, evidenced, cited,
    versioned, and quality-graded.
 
-## Near-Term Milestone
+## Near-Term Milestones
+
+### Semantic Infrastructure (Phase 0)
+
+Before literary implementation begins, the repository should have a working semantic engine:
+
+- 105 existing Worlds migrated to canonical PostgreSQL + Neo4j + pgvector
+- Agent system operational (Ingestion, Relation, Architect, Ring, Gap, Quality)
+- Semantic Projection Service keeping stores in sync
+- Human-in-the-loop approval workflow for architectural changes
+
+### Literary Knowledge (Phase 6)
 
 Before implementation begins, the repository should be able to specify one poem completely.
 
