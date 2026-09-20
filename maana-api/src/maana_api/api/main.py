@@ -9,7 +9,7 @@ from loguru import logger
 
 from maana_api.config import get_settings
 from maana_api.infrastructure.database import init_db
-from maana_api.api import worlds, claims, relations, paths, search
+from maana_api.api import worlds, claims, relations, paths, search, agents
 
 settings = get_settings()
 
@@ -34,6 +34,7 @@ app.include_router(claims.router)
 app.include_router(relations.router)
 app.include_router(paths.router)
 app.include_router(search.router)
+app.include_router(agents.router)
 
 
 @app.get("/health")
