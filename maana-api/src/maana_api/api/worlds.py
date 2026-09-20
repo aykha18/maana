@@ -80,3 +80,29 @@ def merge_worlds(
     if world is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="World not found")
     return world
+
+
+@router.post("/batch-approve", response_model=list[World])
+def batch_approve_worlds(
+    world_ids: list[str],
+    service: WorldService = Depends(get_world_service),
+) -> list[World]:
+    results = []
+    for world_id in world_ids:
+        world = service.approve_world(world_id)
+        if world is not None:
+            results.append(world)
+    return results
+
+
+@router.get("/{world_id}/history", response_model=list[dict[str, Any]])
+def get_world_history(world_id: str, service: WorldService = Depends(get_world_service)) -> list[dict[str, Any]]:
+    world = service.get_world(world_id)
+    if world is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="World not found")
+    # In a real implementation, this would query a history/audit table
+    # For now, return basic version history
+    return [
+        {"version_id": vid, "world_id": world_id}
+        for vid in world.version_history
+    ]

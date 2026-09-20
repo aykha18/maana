@@ -179,3 +179,83 @@ def test_approve_claim(client: TestClient):
     response = client.post("/claims/C003/approve")
     assert response.status_code == 200
     assert response.json()["status"] == "approved"
+
+
+def test_create_relation(client: TestClient):
+    response = client.post(
+        "/relations/",
+        json={
+            "relation_id": "R001",
+            "relation_type": "deepens",
+            "source_world_id": "W001",
+            "target_world_id": "W002",
+            "status": "proposed",
+            "scope": "global",
+        },
+    )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["relation_id"] == "R001"
+    assert data["relation_type"] == "deepens"
+
+
+def test_get_relation(client: TestClient):
+    client.post(
+        "/relations/",
+        json={
+            "relation_id": "R002",
+            "relation_type": "related_to",
+            "source_world_id": "W001",
+            "target_world_id": "W003",
+            "status": "proposed",
+            "scope": "global",
+        },
+    )
+    response = client.get("/relations/R002")
+    assert response.status_code == 200
+    assert response.json()["relation_type"] == "related_to"
+
+
+def test_list_relations(client: TestClient):
+    client.post(
+        "/relations/",
+        json={
+            "relation_id": "R003",
+            "relation_type": "contrasts_with",
+            "source_world_id": "W001",
+            "target_world_id": "W004",
+            "status": "proposed",
+            "scope": "global",
+        },
+    )
+    client.post(
+        "/relations/",
+        json={
+            "relation_id": "R004",
+            "relation_type": "part_of",
+            "source_world_id": "W002",
+            "target_world_id": "W005",
+            "status": "approved",
+            "scope": "global",
+        },
+    )
+    response = client.get("/relations/")
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
+
+def test_approve_relation(client: TestClient):
+    client.post(
+        "/relations/",
+        json={
+            "relation_id": "R005",
+            "relation_type": "deepens",
+            "source_world_id": "W001",
+            "target_world_id": "W002",
+            "status": "proposed",
+            "scope": "global",
+        },
+    )
+    response = client.post("/relations/R005/approve")
+    assert response.status_code == 200
+    assert response.json()["status"] == "approved"

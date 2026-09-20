@@ -424,3 +424,26 @@ class EmbeddingProvenance(SQLModel, table=True):
     created_at: datetime = SQLField(default_factory=datetime.utcnow)
 
 
+# ---------------------------------------------------------------------------
+# Embedding (pgvector)
+# ---------------------------------------------------------------------------
+
+class Embedding(SQLModel, table=True):
+    """Vector embedding with pgvector."""
+
+    __tablename__ = "embeddings"
+
+    embedding_id: str = SQLField(primary_key=True, index=True)
+    entity_id: str = SQLField(index=True)
+    entity_type: str = SQLField(index=True)
+    embedding_type: str = SQLField(index=True)
+    model: str
+    model_version: str
+    dimensions: int
+    vector: list[float] = SQLField(sa_column=Column("vector", JSON))  # pgvector stores as vector type
+    source_version: str | None = None
+    content_hash: str | None = None
+    created_at: datetime = SQLField(default_factory=datetime.utcnow)
+    updated_at: datetime = SQLField(default_factory=datetime.utcnow)
+
+

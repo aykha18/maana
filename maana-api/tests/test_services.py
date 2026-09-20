@@ -126,3 +126,57 @@ def test_approve_claim(session: Session):
     service.create_claim(claim)
     approved = service.approve_claim("C003")
     assert approved.status == ClaimStatus.APPROVED
+
+
+def test_merge_worlds(session: Session):
+    service = WorldService(session=session)
+    # Create two approved worlds
+    world1 = World(world_id="W100", canonical_term="شوق", status=WorldStatus.APPROVED, scope=Scope.GLOBAL)
+    world2 = World(world_id="W101", canonical_term="اشتیاق", status=WorldStatus.APPROVED, scope=Scope.GLOBAL)
+    service.create_world(world1)
+    service.create_world(world2)
+    
+    # Merge W101 into W100
+    result = service.merge_worlds("W101", "W100")
+    assert result is not None
+    assert result.world_id == "W100"
+    
+    # Source should be marked as MERGED
+    merged = service.get_world("W101")
+    assert merged is not None
+    assert merged.status == WorldStatus.MERGED
+
+
+def test_create_relation(session: Session):
+    from maana_api.services.relation_service import RelationService
+    from maana_api.domain.models import Relation, RelationType
+    
+    service = RelationService(session=session)
+    relation = Relation(
+        relation_id="R001",
+        relation_type=RelationType.DEEPENS,
+        source_world_id="W001",
+        target_world_id="W002",
+        status=WorldStatus.PROPOSED,
+        scope=Scope.GLOBAL,
+    )
+    created = service.create_relation(relation)
+    assert created.relation_id == "R001"
+
+
+def test_approve_relation(session: Session):
+    from maana_api.services.relation_service import RelationService
+    from maana_api.domain.models import Relation, RelationType
+    
+    service = RelationService(session=session)
+    relation = Relation(
+        relation_id="R002",
+        relation_type=RelationType.RELATED_TO,
+        source_world_id="W001",
+        target_world_id="W002",
+        status=WorldStatus.PROPOSED,
+        scope=Scope.GLOBAL,
+    )
+    service.create_relation(relation)
+    approved = service.approve_relation("R002")
+    assert approved.status == WorldStatus.APPROVED

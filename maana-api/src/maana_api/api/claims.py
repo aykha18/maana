@@ -60,3 +60,25 @@ def approve_claim(claim_id: str, service: ClaimService = Depends(get_claim_servi
     if claim is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Claim not found")
     return claim
+
+
+@router.post("/batch-approve", response_model=list[Claim])
+def batch_approve_claims(
+    claim_ids: list[str],
+    service: ClaimService = Depends(get_claim_service),
+) -> list[Claim]:
+    results = []
+    for claim_id in claim_ids:
+        claim = service.approve_claim(claim_id)
+        if claim is not None:
+            results.append(claim)
+    return results
+
+
+@router.get("/{claim_id}/history", response_model=list[dict[str, Any]])
+def get_claim_history(claim_id: str, service: ClaimService = Depends(get_claim_service)) -> list[dict[str, Any]]:
+    claim = service.get_claim(claim_id)
+    if claim is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Claim not found")
+    # In a real implementation, this would query a history/audit table
+    return [{"claim_id": claim_id, "note": "History endpoint - implement audit trail"}]
