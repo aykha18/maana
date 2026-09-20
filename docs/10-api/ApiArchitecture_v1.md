@@ -813,6 +813,133 @@ GET /worlds/{world_id}/path
 GET /worlds/{world_id}/graph
 ```
 
+### Challenge World
+
+```http
+POST /worlds/{world_id}/challenge
+```
+
+Request:
+
+```json
+{
+  "challenger_id": "reader_001",
+  "reason": "Evidence contradicts the philosophical dimension interpretation",
+  "new_evidence": [
+    {
+      "source_ref": "manuscript_X",
+      "text": "contradictory passage",
+      "dimensions": {"source_authority": 0.9, "directness": 0.8}
+    }
+  ],
+  "suggested_correction": {
+    "field": "semantic_dimensions.philosophical",
+    "value": "corrected interpretation"
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "challenge_id": "ch_world_uuid_reader_001",
+  "entity_type": "world",
+  "entity_id": "uuid",
+  "challenger_id": "reader_001",
+  "reason": "...",
+  "status": "open",
+  "created_at": "2026-09-20T10:00:00Z"
+}
+```
+
+### List World Challenges
+
+```http
+GET /worlds/{world_id}/challenges?status=open
+```
+
+Response:
+
+```json
+[
+  {
+    "challenge_id": "ch_world_uuid_reader_001",
+    "entity_type": "world",
+    "entity_id": "uuid",
+    "challenger_id": "reader_001",
+    "reason": "...",
+    "status": "under_review",
+    "created_at": "2026-09-20T10:00:00Z"
+  }
+]
+```
+
+### Challenge Claim
+
+```http
+POST /claims/{claim_id}/challenge
+```
+
+Request (same structure as World challenge):
+
+```json
+{
+  "challenger_id": "reader_001",
+  "reason": "Claim misinterprets the textual evidence",
+  "new_evidence": [...],
+  "suggested_correction": {"text": "corrected claim text"}
+}
+```
+
+### List Claim Challenges
+
+```http
+GET /claims/{claim_id}/challenges?status=open
+```
+
+### Challenge Relation
+
+```http
+POST /relations/{relation_id}/challenge
+```
+
+### List Relation Challenges
+
+```http
+GET /relations/{relation_id}/challenges?status=open
+```
+
+### Resolve Challenge (Curator Only)
+
+```http
+POST /challenges/{challenge_id}/resolve
+```
+
+Request:
+
+```json
+{
+  "resolution": "SUPERSEDED",
+  "resolver_id": "curator_001",
+  "new_entity_id": "new_claim_uuid"
+}
+```
+
+Resolution options: `REAFFIRMED`, `SUPERSEDED`, `MERGED`, `WITHDRAWN`
+
+Response:
+
+```json
+{
+  "challenge_id": "ch_claim_uuid_reader_001",
+  "status": "resolved",
+  "resolution": "SUPERSEDED",
+  "resolver_id": "curator_001",
+  "resolved_at": "2026-09-20T11:00:00Z"
+}
+```
+
 ### Chapter Endpoints
 
 ```http

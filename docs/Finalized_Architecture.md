@@ -363,6 +363,62 @@ APPROVED ───────► CHALLENGED
 
 **Rejected objects remain in history. Never delete knowledge proposals simply because they were wrong. They are part of the intellectual audit trail.**
 
+## Challenge Governance Workflow
+
+When readers/viewers identify errors in approved knowledge, they can initiate a **Challenge**:
+
+### Challenge Lifecycle
+```
+OPEN
+  ↓
+UNDER_REVIEW
+  ↓
+RESOLVED
+```
+
+### Challenge Resolutions
+| Resolution | Entity Outcome | Description |
+|------------|----------------|-------------|
+| `REAFFIRMED` | `APPROVED` | Challenge rejected; original stands |
+| `SUPERSEDED` | `SUPERSEDED` | New version created; old linked via `version_history` |
+| `MERGED` | `MERGED` | Merged into another entity |
+| `WITHDRAWN` | `APPROVED` | Challenger withdrew challenge |
+
+### Challenge Flow
+```
+Reader creates Challenge
+       ↓
+Entity status → CHALLENGED (enters review queue)
+       ↓
+Curator reviews: original + challenge + new evidence
+       ↓
+Curator resolves with one of four resolutions
+       ↓
+Entity status updated per resolution table above
+       ↓
+Challenge status → RESOLVED
+```
+
+### API Endpoints
+```
+POST   /worlds/{id}/challenge       # Create challenge on World
+GET    /worlds/{id}/challenges      # List challenges on World
+POST   /claims/{id}/challenge       # Create challenge on Claim
+GET    /claims/{id}/challenges      # List challenges on Claim
+POST   /relations/{id}/challenge    # Create challenge on Relation
+GET    /relations/{id}/challenges   # List challenges on Relation
+POST   /challenges/{id}/resolve     # Resolve challenge (curator only)
+```
+
+### Versioning on SUPERSEDED
+When a challenge is resolved as `SUPERSEDED`:
+1. Curator creates new World/Claim/Relation version
+2. Original entity marked `SUPERSEDED`
+3. `version_history` on original updated with new entity ID
+4. Graph/vector projections updated to point to new version
+5. Old version remains in history (audit trail preserved)
+```
+
 ## Embedding Lifecycle
 
 ```
