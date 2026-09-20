@@ -180,3 +180,154 @@ def test_approve_relation(session: Session):
     service.create_relation(relation)
     approved = service.approve_relation("R002")
     assert approved.status == WorldStatus.APPROVED
+
+
+def test_create_challenge_on_claim(session: Session):
+    from maana_api.services.challenge_service import ChallengeService
+    from maana_api.domain.models import Challenge, ChallengeStatus, Claim, ClaimStatus
+    
+    # Create and approve a claim first
+    claim_service = ClaimService(session=session)
+    claim = Claim(
+        claim_id="C100",
+        claim_type="interpretive",
+        subject_kind="world",
+        subject_reference_id="W001",
+        predicate="RELATED_TO",
+        text="Test claim",
+        status=ClaimStatus.APPROVED,
+        scope=Scope.GLOBAL,
+    )
+    claim_service.create_claim(claim)
+    
+    # Create challenge
+    challenge_service = ChallengeService(session=session)
+    challenge = challenge_service.create_challenge(
+        entity_type="claim",
+        entity_id="C100",
+        challenger_id="reader_001",
+        reason="Evidence contradicts this claim",
+        new_evidence=[{"source": "manuscript_X", "text": "contradictory text"}],
+    )
+    
+    assert challenge.challenge_id == "ch_claim_C100_reader_001"
+    assert challenge.status == ChallengeStatus.OPEN.value
+    assert challenge.entity_type == "claim"
+    assert challenge.entity_id == "C100"
+    
+    # Claim status should be CHALLENGED
+    challenged_claim = claim_service.get_claim("C100")
+    assert challenged_claim is not None
+    assert challenged_claim.status == ClaimStatus.CHALLENGED.value
+
+
+def test_resolve_challenge_reaffirm(session: Session):
+    from maana_api.services.challenge_service import ChallengeService
+    from maana_api.domain.models import Challenge, ChallengeResolution, ChallengeStatus, Claim, ClaimStatus
+    
+    # Setup: claim + challenge
+    claim_service = ClaimService(session=session)
+    claim = Claim(
+        claim_id="C101",
+        claim_type="interpretive",
+        subject_kind="world",
+        subject_reference_id="W001",
+        predicate="RELATED_TO",
+        text="Test claim for reaffirm",
+        status=ClaimStatus.APPROVED,
+        scope=Scope.GLOBAL,
+    )
+    claim_service.create_claim(claim)
+    
+    challenge_service = ChallengeService(session=session)
+    challenge = challenge_service.create_challenge(
+        entity_type="claim",
+        entity_id="C101",
+        challenger_id="reader_002",
+        reason="Disagree",
+    )
+    
+    # Resolve with REAFFIRMED
+    resolved = challenge_service.resolve_challenge(
+        challenge_id=challenge.challenge_id,
+        resolution=ChallengeResolution.REAFFIRMED,
+        resolver_id="curator_001",
+    )
+    
+    assert resolved.status == ChallengeStatus.RESOLVED.value
+    assert resolved.resolution == ChallengeResolution.REAFFIRMED.value
+    assert resolved.resolver_id == "curator_001"
+    
+    # Claim should be back to APPROVED
+    claim = claim_service.get_claim("C101")
+    assert claim.status == ClaimStatus.APPROVED.value
+
+
+def test_resolve_challenge_supersede(session: Session):
+    from maana_api.services.challenge_service import ChallengeService
+    from maana_api.domain.models import Challenge, ChallengeResolution, ChallengeStatus, Claim, ClaimStatus
+    
+    # Setup: claim + challenge
+    claim_service = ClaimService(session=session)
+    claim = Claim(
+        claim_id="C102",
+        claim_type="interpretive",
+        subject_kind="world",
+        subject_reference_id="W001",
+        predicate="RELATED_TO",
+        text="Test claim for supersede",
+        status=ClaimStatus.APPROVED,
+        scope=Scope.GLOBAL,
+    )
+    claim_service.create_claim(claim)
+    
+    challenge_service = ChallengeService(session=session)
+    challenge = challenge_service.create_challenge(
+        entity_type="claim",
+        entity_id="C102",
+        challenger_id="reader_003",
+        reason="Wrong interpretation",
+    )
+    
+    # Resolve with SUPERSEDED (new claim C103 created by curator)
+    resolved = challenge_service.resolve_challenge(
+        challenge_id=challenge.challenge_id,
+        resolution=ChallengeResolution.SUPERSEDED,
+        resolver_id="curator_002",
+        new_entity_id="C103",
+    )
+    
+    assert resolved.resolution == ChallengeResolution.SUPERSEDED.value
+    
+    # Original claim should be SUPERSEDED
+    claim = claim_service.get_claim("C102")
+    assert claim.status == ClaimStatus.SUPERSEDED.value
+    assert "C103" in claim.version_history
+
+
+def test_list_challenges(session: Session):
+    from maana_api.services.challenge_service import ChallengeService
+    from maana_api.domain.models import Challenge, ChallengeStatus, Claim, ClaimStatus
+    
+    claim_service = ClaimService(session=session)
+    claim = Claim(
+        claim_id="C104",
+        claim_type="interpretive",
+        subject_kind="world",
+        subject_reference_id="W001",
+        predicate="RELATED_TO",
+        text="Test claim for listing",
+        status=ClaimStatus.APPROVED,
+        scope=Scope.GLOBAL,
+    )
+    claim_service.create_claim(claim)
+    
+    challenge_service = ChallengeService(session=session)
+    challenge_service.create_challenge("claim", "C104", "reader_1", "Reason 1")
+    challenge_service.create_challenge("claim", "C104", "reader_2", "Reason 2")
+    
+    challenges = challenge_service.list_challenges(entity_type="claim", entity_id="C104")
+    assert len(challenges) == 2
+    
+    open_challenges = challenge_service.list_challenges(entity_type="claim", entity_id="C104", status=ChallengeStatus.OPEN)
+    assert len(open_challenges) == 2

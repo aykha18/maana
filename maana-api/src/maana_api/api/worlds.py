@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from maana_api.config import get_settings
-from maana_api.domain.models import Scope, World, WorldStatus
+from maana_api.domain.models import Challenge, ChallengeStatus, Scope, World, WorldStatus
 from maana_api.infrastructure.database import get_db_session
+from maana_api.services.challenge_service import ChallengeService
 from maana_api.services.world_service import WorldService
 
 settings = get_settings()
@@ -18,6 +19,10 @@ router = APIRouter(prefix="/worlds", tags=["worlds"])
 
 def get_world_service(session: Session = Depends(get_db_session)) -> WorldService:
     return WorldService(session=session)
+
+
+def get_challenge_service(session: Session = Depends(get_db_session)) -> ChallengeService:
+    return ChallengeService(session=session)
 
 
 @router.post("/", response_model=World, status_code=status.HTTP_201_CREATED)
@@ -100,9 +105,39 @@ def get_world_history(world_id: str, service: WorldService = Depends(get_world_s
     world = service.get_world(world_id)
     if world is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="World not found")
-    # In a real implementation, this would query a history/audit table
-    # For now, return basic version history
     return [
         {"version_id": vid, "world_id": world_id}
         for vid in world.version_history
     ]
+
+
+# Challenge endpoints
+@router.post("/{world_id}/challenge", response_model=Challenge, status_code=status.HTTP_201_CREATED)
+def challenge_world(
+    world_id: str,
+    challenger_id: str,
+    reason: str,
+    new_evidence: list[dict[str, Any]] | None = None,
+    suggested_correction: dict[str, Any] | None = None,
+    service: ChallengeService = Depends(get_challenge_service),
+) -> Challenge:
+    try:
+        return service.create_challenge(
+            entity_type="world",
+            entity_id=world_id,
+            challenger_id=challenger_id,
+            reason=reason,
+            new_evidence=new_evidence,
+            suggested_correction=suggested_correction,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/{world_id}/challenges", response_model=list[Challenge])
+def list_world_challenges(
+    world_id: str,
+    status: ChallengeStatus | None = None,
+    service: ChallengeService = Depends(get_challenge_service),
+) -> list[Challenge]:
+    return service.list_challenges(entity_type="world", entity_id=world_id, status=status)

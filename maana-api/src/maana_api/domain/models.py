@@ -57,6 +57,27 @@ class ClaimStatus(StrEnum):
 
 
 # ---------------------------------------------------------------------------
+# Challenge Lifecycle
+# ---------------------------------------------------------------------------
+
+class ChallengeStatus(StrEnum):
+    """Challenge lifecycle states."""
+
+    OPEN = "open"
+    UNDER_REVIEW = "under_review"
+    RESOLVED = "resolved"
+
+
+class ChallengeResolution(StrEnum):
+    """How a challenge was resolved."""
+
+    REAFFIRMED = "reaffirmed"      # Original stands, challenge rejected
+    SUPERSEDED = "superseded"      # New version created, old superseded
+    MERGED = "merged"              # Merged into another entity
+    WITHDRAWN = "withdrawn"        # Challenger withdrew
+
+
+# ---------------------------------------------------------------------------
 # Claim Types
 # ---------------------------------------------------------------------------
 
@@ -383,6 +404,7 @@ class Claim(SQLModel, table=True):
     confidence: float = SQLField(default=0.0)
     evidence: list[dict[str, Any]] = SQLField(default=[], sa_column=Column(JSON))
     provenance: list[dict[str, Any]] = SQLField(default=[], sa_column=Column(JSON))
+    version_history: list[str] = SQLField(default=[], sa_column=Column(JSON))
     created_at: datetime = SQLField(default_factory=datetime.utcnow)
     updated_at: datetime = SQLField(default_factory=datetime.utcnow)
 
@@ -445,5 +467,45 @@ class Embedding(SQLModel, table=True):
     content_hash: str | None = None
     created_at: datetime = SQLField(default_factory=datetime.utcnow)
     updated_at: datetime = SQLField(default_factory=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Challenge (Governance)
+# ---------------------------------------------------------------------------
+
+class ChallengeStatus(StrEnum):
+    """Challenge lifecycle states."""
+
+    OPEN = "open"
+    UNDER_REVIEW = "under_review"
+    RESOLVED = "resolved"
+
+
+class ChallengeResolution(StrEnum):
+    """How a challenge was resolved."""
+
+    REAFFIRMED = "reaffirmed"      # Original stands, challenge rejected
+    SUPERSEDED = "superseded"      # New version created, old superseded
+    MERGED = "merged"              # Merged into another entity
+    WITHDRAWN = "withdrawn"        # Challenger withdrew
+
+
+class Challenge(SQLModel, table=True):
+    """A challenge to an approved entity (World, Claim, Relation)."""
+
+    __tablename__ = "challenges"
+
+    challenge_id: str = SQLField(primary_key=True, index=True)
+    entity_type: str = SQLField(index=True)  # "world" | "claim" | "relation"
+    entity_id: str = SQLField(index=True)
+    challenger_id: str
+    reason: str = SQLField(sa_column=Column(Text))
+    new_evidence: list[dict[str, Any]] = SQLField(default=[], sa_column=Column(JSON))
+    suggested_correction: dict[str, Any] | None = SQLField(default=None, sa_column=Column(JSON))
+    status: str = SQLField(default=ChallengeStatus.OPEN.value, index=True)
+    resolution: str | None = None
+    resolver_id: str | None = None
+    resolved_at: datetime | None = None
+    created_at: datetime = SQLField(default_factory=datetime.utcnow)
 
 
