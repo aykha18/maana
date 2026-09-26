@@ -16,7 +16,7 @@ This document captures the finalized architectural decisions reached after criti
 
 1. Ma'na Vision (`docs/Architecture_Vision`)
 2. Finalized Architecture Decisions (this document)
-3. Ontology & Knowledge Model (`docs/Ontology_Knowledge_Model_v1.md`) — next to be written
+3. Ontology & Knowledge Model (`docs/04-ontology/Ontology_Knowledge_Model_v1.md`) — WRITTEN 2026-09-26, FROZEN
 4. Governance Model
 5. Technical Architecture
 6. API Specification (`docs/10-api/ApiArchitecture_v1.md`)
@@ -815,7 +815,8 @@ Regression suite. Production test with **خیال + تصور + استعارہ**.
 
 # Next Document
 
-**`Ma'ana Ontology & Knowledge Model v1.0`**
+**`Ma'ana Ontology & Knowledge Model v1.0`** — WRITTEN, FROZEN.
+See `docs/04-ontology/Ontology_Knowledge_Model_v1.md`.
 
 This document must formally define:
 - Every entity, its fields, enums, and types
