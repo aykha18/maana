@@ -27,6 +27,16 @@ from maana_api.services.world_service import WorldService
 from sqlmodel import Session, SQLModel, create_engine
 
 
+def _status(value: Any) -> str:
+    """Normalize an enum-or-string status column to its string form.
+
+    Enum-typed columns are declared as ``Text`` (Ontology §2.1), so a value read
+    back from the database is a plain ``str``.
+    """
+
+    return value.value if hasattr(value, "value") else str(value)
+
+
 THREE_WORLDS = [
     {
         "world_id": "W_khayal",
@@ -178,7 +188,9 @@ def run_production_test() -> dict[str, Any]:
             for w_data in THREE_WORLDS:
                 world = World(**w_data)
                 created = world_service.create_world(world)
-                results["worlds"].append({"id": created.world_id, "status": created.status.value})
+                results["worlds"].append(
+                    {"id": created.world_id, "status": _status(created.status)}
+                )
                 print(f"  Created {created.world_id}")
 
             # Phase 2: Create expected relations

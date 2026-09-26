@@ -18,6 +18,7 @@ from maana_api.domain.models import (
     World,
     WorldStatus,
 )
+from maana_api.services.validation import InvariantViolation
 
 settings = get_settings()
 
@@ -122,10 +123,16 @@ class ChallengeService:
             self._session.add(entity)
 
         elif resolution == ChallengeResolution.SUPERSEDED:
-            # New version should already be created by curator
-            # Mark old as SUPERSEDED
+            # Ontology §8.3: create the new version, then retire the original.
             if not new_entity_id:
                 raise ValueError("SUPERSEDED resolution requires new_entity_id")
+            if new_entity_id == challenge.entity_id:
+                raise InvariantViolation("I-001", "a version must have a new ID")
+            if self._get_entity(challenge.entity_type, new_entity_id) is not None:
+                raise ValueError(f"New version already exists: {new_entity_id}")
+
+            self._create_successor(challenge, entity, new_entity_id)
+
             entity.status = self._get_superseded_status(challenge.entity_type)  # type: ignore
             entity.updated_at = datetime.utcnow()  # type: ignore
             # Link versions - create new list to ensure SQLModel tracks the change
@@ -136,7 +143,12 @@ class ChallengeService:
         elif resolution == ChallengeResolution.MERGED:
             if not new_entity_id:
                 raise ValueError("MERGED resolution requires new_entity_id")
+            if new_entity_id == challenge.entity_id:
+                raise InvariantViolation("I-021", "an entity cannot merge into itself")
+            if self._get_entity(challenge.entity_type, new_entity_id) is None:
+                raise ValueError(f"Merge target does not exist: {new_entity_id}")
             entity.status = WorldStatus.MERGED  # type: ignore
+            entity.current_version_id = new_entity_id  # type: ignore
             entity.updated_at = datetime.utcnow()  # type: ignore
             self._session.add(entity)
 
@@ -156,6 +168,94 @@ class ChallengeService:
         self._session.commit()
         self._session.refresh(challenge)
         return challenge
+
+    def _create_successor(
+        self, challenge: Challenge, entity: Any, new_entity_id: str
+    ) -> Any:
+        """Create the corrected version of a challenged entity (Ontology §8.3).
+
+        The successor starts at ``proposed``. Versioning is not approval: the
+        corrected content still passes through curator review (I-044), and a
+        challenge resolution is not by itself a governance decision to publish
+        the new text.
+        """
+
+        from maana_api.services.validation import InvariantViolation as _IV
+
+        if challenge.entity_type == "world":
+            successor = World(
+                world_id=new_entity_id,
+                canonical_term=entity.canonical_term,
+                transliteration=entity.transliteration,
+                persian_term=entity.persian_term,
+                urdu_term=entity.urdu_term,
+                arabic_root=entity.arabic_root,
+                english_gloss=entity.english_gloss,
+                short_definition=entity.short_definition,
+                literal_meaning=entity.literal_meaning,
+                expanded_meaning=entity.expanded_meaning,
+                central_question=entity.central_question,
+                central_axis=entity.central_axis,
+                semantic_dimensions=dict(entity.semantic_dimensions or {}),
+                status=WorldStatus.PROPOSED,
+                scope=entity.scope,
+                chapter_id=entity.chapter_id,
+                cluster_id=entity.cluster_id,
+                version_history=list(entity.version_history or []) + [entity.world_id],
+                provenance=[dict(p) for p in (entity.provenance or [])],
+            )
+        elif challenge.entity_type == "claim":
+            successor = Claim(
+                claim_id=new_entity_id,
+                claim_type=entity.claim_type,
+                subject_kind=entity.subject_kind,
+                subject_reference_id=entity.subject_reference_id,
+                subject_label=entity.subject_label,
+                predicate=entity.predicate,
+                object=entity.object,
+                text=entity.text,
+                status=ClaimStatus.PROPOSED,
+                scope=entity.scope,
+                confidence=entity.confidence,
+                evidence=[dict(e) for e in (entity.evidence or [])],
+                provenance=[dict(p) for p in (entity.provenance or [])],
+                version_history=list(entity.version_history or []) + [entity.claim_id],
+            )
+        elif challenge.entity_type == "relation":
+            successor = Relation(
+                relation_id=new_entity_id,
+                relation_type=entity.relation_type,
+                source_world_id=entity.source_world_id,
+                target_world_id=entity.target_world_id,
+                claim_id=entity.claim_id,
+                status=WorldStatus.PROPOSED,
+                scope=entity.scope,
+                provenance=[dict(p) for p in (entity.provenance or [])],
+            )
+        else:
+            raise _IV("I-039", f"cannot version entity type {challenge.entity_type!r}")
+
+        # Apply the curator's suggested correction where the fields are known.
+        correction = challenge.suggested_correction or {}
+        for key, value in correction.items():
+            if hasattr(successor, key):
+                setattr(successor, key, value)
+
+        # Record that this version supersedes the original (Ontology §8.3 step 9).
+        provenance = list(getattr(successor, "provenance", []) or [])
+        provenance.append(
+            {
+                "contributor_kind": "curator",
+                "contributor_id": challenge.resolver_id or "curator",
+                "method": "challenge_resolution",
+                "source": f"challenge:{challenge.challenge_id}",
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        )
+        successor.provenance = provenance
+
+        self._session.add(successor)
+        return successor
 
     def _get_entity(self, entity_type: str, entity_id: str):
         """Get entity by type and ID."""

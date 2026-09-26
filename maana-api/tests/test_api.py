@@ -48,6 +48,38 @@ def test_ready(client: TestClient):
     assert response.json() == {"ready": True}
 
 
+# A World cannot be canonized without provenance (Ontology I-018), and a Claim
+# subject must resolve to a real World (I-039). These helpers build fixtures
+# that satisfy both.
+PROVENANCE = [{"contributor_kind": "editor", "contributor_id": "test", "method": "manual"}]
+EVIDENCE = [
+    {
+        "evidence_id": "E001",
+        "evidence_type": "text_span",
+        "source_ref": "test://source/1",
+        "text": "quoted",
+    }
+]
+
+
+def ensure_world(client: TestClient, world_id: str, term: str) -> None:
+    """Create a World if absent, with provenance so it can be approved."""
+    existing = client.get(f"/worlds/{world_id}")
+    if existing.status_code == 200:
+        return
+    response = client.post(
+        "/worlds/",
+        json={
+            "world_id": world_id,
+            "canonical_term": term,
+            "status": "proposed",
+            "scope": "global",
+            "provenance": PROVENANCE,
+        },
+    )
+    assert response.status_code == 201, response.text
+
+
 def test_create_world(client: TestClient):
     response = client.post(
         "/worlds/",
@@ -107,21 +139,30 @@ def test_list_worlds(client: TestClient):
 
 
 def test_approve_world(client: TestClient):
-    client.post(
-        "/worlds/",
-        json={
-            "world_id": "W005",
-            "canonical_term": "تصور",
-            "status": "proposed",
-            "scope": "global",
-        },
-    )
+    ensure_world(client, "W005", "تصور")
     response = client.post("/worlds/W005/approve")
     assert response.status_code == 200
     assert response.json()["status"] == "approved"
 
 
+def test_approve_world_without_provenance_is_rejected(client: TestClient):
+    """I-018 over the API: approval of an unprovenanced World must fail."""
+    response = client.post(
+        "/worlds/",
+        json={
+            "world_id": "W006",
+            "canonical_term": "فنا",
+            "status": "proposed",
+            "scope": "global",
+        },
+    )
+    assert response.status_code == 201
+    approve = client.post("/worlds/W006/approve")
+    assert approve.status_code >= 400
+
+
 def test_create_claim(client: TestClient):
+    ensure_world(client, "W001", "خیال")
     response = client.post(
         "/claims/",
         json={
@@ -130,11 +171,13 @@ def test_create_claim(client: TestClient):
             "subject_kind": "world",
             "subject_reference_id": "W001",
             "subject_label": "خیال",
-            "predicate": "DEEPENS_TOWARD",
+            "predicate": "deepens",
             "object": "W002",
             "text": "خیال deepens toward فنا.",
             "status": "proposed",
             "scope": "global",
+            "provenance": PROVENANCE,
+            "evidence": EVIDENCE,
         },
     )
     assert response.status_code == 201
@@ -143,7 +186,27 @@ def test_create_claim(client: TestClient):
     assert data["claim_type"] == "interpretive"
 
 
+def test_create_claim_with_unresolvable_subject_is_rejected(client: TestClient):
+    """I-039 over the API: a dangling subject reference must not persist."""
+    response = client.post(
+        "/claims/",
+        json={
+            "claim_id": "C_dangling",
+            "claim_type": "interpretive",
+            "subject_kind": "world",
+            "subject_reference_id": "W_nonexistent",
+            "predicate": "deepens",
+            "text": "dangling",
+            "status": "proposed",
+            "scope": "global",
+            "provenance": PROVENANCE,
+        },
+    )
+    assert response.status_code >= 400
+
+
 def test_get_claim(client: TestClient):
+    ensure_world(client, "W001", "خیال")
     client.post(
         "/claims/",
         json={
@@ -151,10 +214,11 @@ def test_get_claim(client: TestClient):
             "claim_type": "interpretive",
             "subject_kind": "world",
             "subject_reference_id": "W001",
-            "predicate": "RELATED_TO",
+            "predicate": "related_to",
             "text": "خیال is related to تصور.",
             "status": "proposed",
             "scope": "global",
+            "provenance": PROVENANCE,
         },
     )
     response = client.get("/claims/C002")
@@ -163,6 +227,7 @@ def test_get_claim(client: TestClient):
 
 
 def test_approve_claim(client: TestClient):
+    ensure_world(client, "W001", "خیال")
     client.post(
         "/claims/",
         json={
@@ -170,10 +235,12 @@ def test_approve_claim(client: TestClient):
             "claim_type": "interpretive",
             "subject_kind": "world",
             "subject_reference_id": "W001",
-            "predicate": "RELATED_TO",
+            "predicate": "related_to",
             "text": "خیال is related to تصور.",
             "status": "proposed",
             "scope": "global",
+            "provenance": PROVENANCE,
+            "evidence": EVIDENCE,
         },
     )
     response = client.post("/claims/C003/approve")
@@ -181,7 +248,30 @@ def test_approve_claim(client: TestClient):
     assert response.json()["status"] == "approved"
 
 
+def test_approve_claim_without_evidence_is_rejected(client: TestClient):
+    """I-049 over the API: assertion claims need evidence before approval."""
+    ensure_world(client, "W001", "خیال")
+    client.post(
+        "/claims/",
+        json={
+            "claim_id": "C_no_evidence",
+            "claim_type": "interpretive",
+            "subject_kind": "world",
+            "subject_reference_id": "W001",
+            "predicate": "related_to",
+            "text": "no evidence",
+            "status": "proposed",
+            "scope": "global",
+            "provenance": PROVENANCE,
+        },
+    )
+    response = client.post("/claims/C_no_evidence/approve")
+    assert response.status_code >= 400
+
+
 def test_create_relation(client: TestClient):
+    ensure_world(client, "W001", "خیال")
+    ensure_world(client, "W002", "تصور")
     response = client.post(
         "/relations/",
         json={
@@ -200,6 +290,8 @@ def test_create_relation(client: TestClient):
 
 
 def test_get_relation(client: TestClient):
+    ensure_world(client, "W001", "خیال")
+    ensure_world(client, "W003", "جمود")
     client.post(
         "/relations/",
         json={
@@ -217,6 +309,8 @@ def test_get_relation(client: TestClient):
 
 
 def test_list_relations(client: TestClient):
+    for wid, term in (("W001", "خیال"), ("W002", "تصور"), ("W004", "عشق"), ("W005", "فنا")):
+        ensure_world(client, wid, term)
     client.post(
         "/relations/",
         json={
@@ -245,6 +339,8 @@ def test_list_relations(client: TestClient):
 
 
 def test_approve_relation(client: TestClient):
+    ensure_world(client, "W001", "خیال")
+    ensure_world(client, "W002", "تصور")
     client.post(
         "/relations/",
         json={
@@ -254,8 +350,26 @@ def test_approve_relation(client: TestClient):
             "target_world_id": "W002",
             "status": "proposed",
             "scope": "global",
+            "provenance": PROVENANCE,
         },
     )
     response = client.post("/relations/R005/approve")
     assert response.status_code == 200
     assert response.json()["status"] == "approved"
+
+
+def test_relation_with_dangling_endpoint_is_rejected(client: TestClient):
+    """I-023 over the API: a Relation endpoint must resolve."""
+    ensure_world(client, "W001", "خیال")
+    response = client.post(
+        "/relations/",
+        json={
+            "relation_id": "R_bad",
+            "relation_type": "deepens",
+            "source_world_id": "W001",
+            "target_world_id": "W_nonexistent",
+            "status": "proposed",
+            "scope": "global",
+        },
+    )
+    assert response.status_code >= 400

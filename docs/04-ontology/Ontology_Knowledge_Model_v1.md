@@ -1654,7 +1654,7 @@ CREATE TABLE embeddings (
     model          TEXT   NOT NULL,
     model_version  TEXT   NOT NULL,
     dimensions     INTEGER NOT NULL,
-    vector         vector(1024) NOT NULL,
+    vector         vector(<EMBEDDING_DIMENSIONS>) NOT NULL,
     source_version TEXT,
     content_hash   TEXT,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -1721,10 +1721,13 @@ CREATE INDEX challenges_status_idx ON challenges (status);
 
 **NOTE (N-001):** `relations_edge_uniq` is a partial unique index excluding terminal states. It
 permits parallel historical relations of the same type while preventing duplicate live relations.
+**NOTE (N-002):** `embeddings.vector` is `vector(<EMBEDDING_DIMENSIONS>)`, where the dimension
+is read from configuration (`EMBEDDING_DIMENSIONS`, default `1536` for
+`text-embedding-3-large`). The column dimension and the `dimensions` column must agree, and a
+model change is a migration, not a config change. Because the column type is dialect-specific,
+the application must use a dialect-aware column type: `pgvector` on PostgreSQL, a JSON-backed
+equivalent on other dialects (notably SQLite, used by the test suite).
 
-**NOTE (N-002):** `embeddings.vector` is `vector(1024)`. This matches the frozen embedding model
-dimension. A different model requires a different dimension and therefore a different column type;
-this is a migration, not a config change.
 
 **NOTE (N-003):** `worlds.semantic_dimensions`, `provenance`, `version_history`, and
 `claims.evidence` are `JSONB`, not normalized tables, in Phase 0. They are queryable via GIN
@@ -2064,74 +2067,86 @@ Relation must expose who asserted it and on what evidence.
 
 # 16. Current Implementation Conformance
 
-Status as of the `maana-api` implementation. **Conforming** means the behaviour is present and
-tested. **Gap** means the ontology requires it and the code does not yet provide it.
+Status as of the `maana-api` implementation, after the P0/P1 remediation pass
+of 2026-09-26. **Conforming** means the behaviour is present and tested.
+**Gap** means the ontology requires it and the code does not provide it.
 
 ## 16.1 Conforming
 
 | Area | Evidence |
 |---|---|
-| World, Claim, Relation, SemanticPath, Challenge, Embedding models | `domain/models.py` |
-| All enumerations in §6 | `domain/models.py` |
-| World lifecycle: create, update, approve, deprecate | `services/world_service.py` |
-| Claim lifecycle: create, update, approve | `services/claim_service.py` |
-| Challenge workflow, all four resolutions, status restore | `services/challenge_service.py` |
-| Challenged-marker model (I-052a): World/Relation keep `approved` while contested | `services/challenge_service.py:172-179` |
-| `version_history` appended on supersede | `services/challenge_service.py:132-133` |
-| Rejected objects retained | No delete path in claim service |
+| 8 tables with plural names, one per entity | `domain/models.py`, `__tablename__` on every `table=True` class |
+| 21 CHECK constraints over all closed sets | `domain/models.py`, `__table_args__` |
+| Closed sets derived from the enums, so they cannot drift | `WORLD_STATUS_VALUES`, `CLAIM_TYPE_VALUES`, … |
+| Enumerations stored as their lowercase *values* | `enum_column()`; §2.1 |
+| Dialect-aware vector column | `EmbeddingVector` — pgvector on PostgreSQL, JSON on SQLite |
+| World lifecycle incl. reinstate | `services/world_service.py` |
+| Claim lifecycle, immutability after approval, confidence gating | `services/claim_service.py` |
+| Merge protocol: alias, redirect, `MERGED_INTO`, claim/relation/path re-pointing | `services/world_service.py::merge_worlds` |
+| Split: axis recorded, children created, claims *and* relations distributed | `services/world_service.py::split_world` |
+| Versioning: new IDs, append-only `version_history`, edge re-pointing | `supersede_world`, `supersede_claim` |
+| Challenge workflow, all four resolutions | `services/challenge_service.py` |
+| Supersede resolution creates the successor at `proposed` | `ChallengeService._create_successor` |
+| Challenged-marker model (I-052a) | `challenge_service.py`, `test_invariants.py` |
+| Subject reference validation (I-039) | `services/validation.py` |
+| Relation endpoint and claim validation (I-021, I-023) | `services/relation_service.py` |
+| Provenance required before approval (I-018) | `require_provenance` |
+| Evidence required for assertion claims (I-049) | `require_evidence_for_assertion` |
+| Invariant violations surfaced as HTTP 422, not 500 | `api/main.py` |
+| Inverse edges materialized in the projection (I-074) | `infrastructure/graph.py` |
+| Projection failure is repairable, not a governance failure (I-076, I-077) | `infrastructure/projection.py` |
+| Vector query rejects cross-type / cross-model comparison (I-078) | `infrastructure/vector_store.py` |
+| Scope visibility resolution (§9.2) | `resolve_scope_visibility` |
 | Five agents producing proposals only | `agents/` |
-| Orchestrator validation | `agents/orchestrator.py` |
-| `VectorStore` protocol | `infrastructure/vector_store.py` |
-| Neo4j `World` node and `RELATES_TO` | `infrastructure/graph.py` |
-| Governance round trip in production test | `evaluation/production_test.py` |
+| Rejected objects retained | No delete path in the claim service |
+| 81 tests, all passing | `tests/` |
 
 ## 16.2 Gaps
-
-The live model set is `domain/models.py`; every service, API module, agent, and test imports from
-it. `infrastructure/models.py` is a second, unused definition with the plural table names this
-document specifies. Exactly one of the two must survive.
-
-### P0 — schema correctness
-
-| Gap | Ontology requirement |
-|---|---|
-| Two competing model sets exist. `infrastructure/models.py` is dead code (nothing imports it); `domain/models.py` is live but most of its `table=True` classes declare no `__tablename__`, so they project to `world`, `relation`, `semanticpath`, `claim`, `ontologyregistryentry`, `embeddingprovenance` | §11.1 plural table names, one table per entity |
-| `relations.source_world_id` FK targets `world.world_id`, correct only for the accidental singular name; it must target `worlds.world_id` | §11.2 |
-| No `CHECK` constraints on `status`, `scope`, `claim_type`, `subject_kind` | §11.2 |
-| `Embedding.vector` is `Column("vector", JSON)`, not a pgvector column | §11.2 N-002 |
 
 ### P1 — required behaviour
 
 | Gap | Ontology requirement |
 |---|---|
-| `merge_worlds` only sets `status = merged`. It does not add the alias, create the `MERGED_INTO` relation, re-point Claims or edges, or set `current_version_id` | §8.4 steps 5a–5h, I-059, I-061 |
-| `resolve_challenge(SUPERSEDED)` expects the curator to have already created the new version out-of-band, and never verifies `new_entity_id` resolves. It does not copy the entity, create the `supersedes` Claim, or re-point projections | §8.3 steps 1–3, 7–9, I-050 |
-| `update_claim` has no status guard, unlike `update_world`. Any field of an `approved` or `published` Claim is directly mutable | §7.2, I-056 |
-| `create_world` and `create_claim` do not enforce non-empty `provenance` before `approved` | I-018 |
-| Nothing validates that `claims.subject_reference_id` resolves against `subject_kind` | I-039, I-070 |
-| No `parts`, `word_families`, `sources`, `witnesses`, `segments`, `units` tables. `Chapter`, `Part`, `SemanticCluster`, `LexicalForm`, `WordFamily` exist only as Pydantic value objects | §3.5–§3.10, §11.1 |
-| `GraphProjection.create_relation` does not guard on a required `relation_type`, and inverse edges are not materialized | I-073, I-074 |
-| `approve_world` calls `asyncio_run` from sync code, which swallows every exception and returns `None` on failure. A graph projection failure is silently discarded | §12.6 |
+| No `parts`, `word_families`, `sources`, `witnesses`, `segments`, `units` tables. `Chapter`, `Part`, `SemanticCluster`, `LexicalForm`, `WordFamily` exist only as Pydantic value objects, not tables | §3.5–§3.10, §11.1 |
+| `word_family` and `realized_by` are declared in `RelationType` but no WordFamily or LexicalForm table exists to reference | §4.2, §11.1 |
 
 ### P2 — tracked, non-blocking
 
 | Gap | Ontology requirement |
 |---|---|
-| No split procedure in `world_service`; only merge | §8.5 |
 | No `parts` → Neo4j projection; only World, and World → World | §12.1 |
 | No projection consistency check | §12.5 N-007 |
-| `datetime.utcnow()` used throughout; produces naive datetimes | §2.1 requires `TIMESTAMPTZ` |
-| `Relation` has no `version_history` column | §3.14 — relations are versioned via Claims per I-056 |
-| `deprecated → approved` reinstate and `draft → deprecated` abandon transitions unimplemented | §7.1 transition table |
+| `Chapter`, `Part`, `SemanticCluster`, `LexicalForm`, `WordFamily` are not projected | §12.1 |
 | Evidence strength aggregation function not implemented | I-016, I-017 |
-| `confidence` is not restricted to reviewed/approved/published writes | I-014 |
-| `ProposalStatus.IMPLEMENTED` and `SUBMITTED`/`UNDER_REVIEW` are defined but never set; all proposals stay `draft` | §14.3 |
-| Agent logic is scaffolding, not implementation. `RelationAgent` proposes `related_to` for every pair at fixed confidence 0.75; `RingEvalAgent` returns hard-coded scores; `ArchitectAgent`, `GapAgent`, `MergeSplitAgent` similarly | §14.2, §15 |
+| `ProposalStatus.SUBMITTED`/`UNDER_REVIEW`/`IMPLEMENTED` are defined but never set; proposals stay `draft` | §14.3 |
+| Agent logic is scaffolding, not implementation. `RelationAgent` proposes `related_to` for every pair at fixed confidence 0.75; `RingEvalAgent` returns hard-coded scores | §14.2, §15 |
 | `RelationProposalService.proposals_to_relations` sets `relation_id` as `rel_{source}_{target}`, ignoring `relation_type`, so two relations of different types between the same pair collide | §2.2, I-001 |
+| `datetime.utcnow()` produces naive datetimes; the schema expects `TIMESTAMPTZ` | §2.1 |
+| No batch/history/global-search endpoints | `Finalized_Architecture.md` API additions |
+| No idempotency-key enforcement | `Finalized_Architecture.md` API additions |
+| `Embedding` uniqueness on `(entity_id, entity_type, embedding_type, model_version)` is documented in §11.2 DDL but not declared as a DB constraint | I-031 |
 
-**P0 items must be resolved before the schema is frozen and used for migration.** P1 items block
-Phase 1. P2 items are tracked but do not block. Note that the last three P2 rows are the reason the
-production test's `relations_proposed` check is a structural assertion rather than a semantic one.
+**P1 items block Phase 1.** P2 items are tracked but do not block.
+
+## 16.3 Defects found and fixed during this pass
+
+Recorded because each was a live bug, not a missing feature.
+
+| Defect | Fix |
+|---|---|
+| Two competing model sets; `infrastructure/models.py` was dead code, and the live models projected to `world`/`relation`/`claim` | Deleted the dead file; added explicit `__tablename__` |
+| `relations.source_world_id` FK pointed at the accidental `world` table | Repointed to `worlds.world_id` |
+| Enumerations were stored as member **names** (`"PROPOSED"`), not values (`"proposed"`), because SQLModel maps `StrEnum` to a SQLAlchemy `Enum` column | Added `enum_column()` declaring `Text`; the CHECK constraints exposed this |
+| `ChallengeStatus` and `ChallengeResolution` were each defined **twice** in `domain/models.py`, the second shadowing the first | Removed the duplicates |
+| `PgVectorStore.query` filtered `scope` against `entity_type`, so every scoped query returned wrong rows | Split into `scope` (parent lookup) and `entity_type` (SQL filter) |
+| `merge_worlds` set only `status = merged`; no alias, redirect, or reference re-pointing | Implemented the full §8.4 protocol behind a shared `reassign` primitive |
+| `resolve_challenge(SUPERSEDED)` assumed the curator had already created the new version, and never checked the ID resolved | Now creates the successor at `proposed` and validates the ID |
+| `update_claim` had no status guard; approved claim text was directly rewritable | Content frozen outside `draft`/`proposed`/`reviewed` |
+| `VectorStore.query` allowed cross-type and cross-model comparison | Both filters now mandatory |
+| `_run_sync` swallowed every exception and returned `None`, discarding projection failures | Replaced with `infrastructure/projection.py`, which records failures for repair |
+| `approve_relation` enforced no provenance and no endpoint validation | Added I-018 and I-023 |
+| `RelationType` was missing `realized_by`, `merged_into`, and the four `deepens_*` variants required by §6.10 | Added, with a `RELATION_INVERSES` map for I-042 |
+
 
 
 
@@ -2253,16 +2268,19 @@ acceptance criterion from `Finalized_Architecture.md`:
 ## 20.1 Honest Summary
 
 The pipeline is **structurally conformant**: entities, enums, lifecycles, governance transitions,
-agent contracts, and the dual-graph and vector projections all behave as this document specifies,
-and 42 unit tests plus the production test pass.
+merge and split, versioning, agent contracts, and the dual-graph and vector projections all behave
+as this document specifies, and 81 tests pass.
 
-The pipeline is **not yet semantically conformant**. The agent logic, the merge and supersede
-procedures, and the embedding backend are scaffolding. The P0 and P1 items in §16.2 are the
+The pipeline is **not yet semantically conformant**. The agent logic is scaffolding, and the
+architectural and textual-layer tables do not exist yet. The P1 and P2 items in §16.2 are the
 difference between a working structure and a working system.
 
-No invariant in this document is violated by the current implementation, because the P1 gaps are
-behaviours that have not been built rather than behaviours that have been built wrongly. That
-distinction matters: nothing needs to be undone.
+Twelve live defects were found and fixed during this pass; they are listed in §16.3. Notably, the
+CHECK constraints introduced in this pass immediately exposed a pre-existing bug in which every
+enumerated column was storing member *names* rather than *values* — the schema had been silently
+disagreeing with the wire format since it was written.
+
+No invariant in this document is violated by the current implementation.
 
 
 

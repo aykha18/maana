@@ -7,9 +7,49 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from pydantic import BaseModel, Field
-from sqlalchemy import Column, JSON, Text
+from sqlalchemy import CheckConstraint, Column, JSON, Text, TypeDecorator
 from sqlmodel import SQLModel, Field as SQLField
+
+
+# ---------------------------------------------------------------------------
+# Dialect-aware embedding vector
+# ---------------------------------------------------------------------------
+
+class EmbeddingVector(TypeDecorator):
+    """pgvector ``vector`` on PostgreSQL, JSON elsewhere.
+
+    The test suite runs on SQLite, where the native pgvector type is not
+    available. Both dialects round-trip a plain ``list[float]``, so application
+    code and the domain model never branch on dialect.
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def __init__(self, dimensions: int = 1536, **kwargs: Any) -> None:
+        self.dimensions = dimensions
+        super().__init__(**kwargs)
+
+    def load_dialect_impl(self, dialect) -> Any:
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(Vector(self.dimensions))
+        return dialect.type_descriptor(JSON())
+
+    def process_bind_param(self, value: Any, dialect) -> Any:
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return list(value)
+        return [float(v) for v in value]
+
+    def process_result_value(self, value: Any, dialect) -> list[float] | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = [float(part) for part in value.strip("[]").split(",") if part.strip()]
+        return [float(v) for v in value]
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +161,136 @@ class EvidenceType(StrEnum):
     COMPARATIVE_PASSAGE = "comparative_passage"
     LEXICAL = "lexical"
     AI_EXTRACTION = "ai_extraction"
+
+
+class RelationType(StrEnum):
+    """Semantic relationship taxonomy (Ontology v1.0 §6.10)."""
+
+    PART_OF = "part_of"
+    CONTAINS = "contains"
+    BELONGS_TO = "belongs_to"
+    RELATED_TO = "related_to"
+    CONTRASTS_WITH = "contrasts_with"
+    OPPOSITE_OF = "opposite_of"
+    DEEPENS = "deepens"
+    DEEPENS_TOWARD = "deepens_toward"
+    DEEPENS_INTO = "deepens_into"
+    DEEPENS_THROUGH = "deepens_through"
+    DEEPENS_TO = "deepens_to"
+    PRECEDES = "precedes"
+    FOLLOWS = "follows"
+    EXPANDS = "expands"
+    WORD_FAMILY = "word_family"
+    DERIVED_FROM = "derived_from"
+    SYNONYM_OF = "synonym_of"
+    NEAR_SYNONYM_OF = "near_synonym_of"
+    ANTONYM_OF = "antonym_of"
+    USED_BY = "used_by"
+    DEVELOPED_BY = "developed_by"
+    SYMBOLIZED_BY = "symbolized_by"
+    THEME_OF = "theme_of"
+    SEMANTIC_BRIDGE = "semantic_bridge"
+    RING_LINK = "ring_link"
+    CHAPTER_ANCHOR = "chapter_anchor"
+    CLUSTER_ANCHOR = "cluster_anchor"
+    TRANSITION_TO = "transition_to"
+    REALIZED_BY = "realized_by"
+    MERGED_INTO = "merged_into"
+
+
+#: Directional relation types and their declared inverses (Ontology v1.0 I-042).
+#: Symmetric types map to themselves in meaning but are listed explicitly so
+#: that every type is accounted for.
+RELATION_INVERSES: dict[str, str] = {
+    RelationType.PRECEDES.value: RelationType.FOLLOWS.value,
+    RelationType.FOLLOWS.value: RelationType.PRECEDES.value,
+    RelationType.DEEPENS.value: "deepened_by",
+    RelationType.DEEPENS_TOWARD.value: "deepened_toward_by",
+    RelationType.DEEPENS_INTO.value: "deepened_into_by",
+    RelationType.DEEPENS_THROUGH.value: "deepened_through_by",
+    RelationType.DEEPENS_TO.value: "deepened_to_by",
+    RelationType.EXPANDS.value: "expanded_by",
+    RelationType.PART_OF.value: RelationType.CONTAINS.value,
+    RelationType.CONTAINS.value: RelationType.PART_OF.value,
+    RelationType.BELONGS_TO.value: RelationType.CONTAINS.value,
+    RelationType.DERIVED_FROM.value: "derives",
+    RelationType.WORD_FAMILY.value: "word_family_member",
+    RelationType.SYNONYM_OF.value: RelationType.SYNONYM_OF.value,
+    RelationType.NEAR_SYNONYM_OF.value: RelationType.NEAR_SYNONYM_OF.value,
+    RelationType.ANTONYM_OF.value: RelationType.ANTONYM_OF.value,
+    RelationType.OPPOSITE_OF.value: RelationType.OPPOSITE_OF.value,
+    RelationType.CONTRASTS_WITH.value: RelationType.CONTRASTS_WITH.value,
+    RelationType.RELATED_TO.value: RelationType.RELATED_TO.value,
+    RelationType.REALIZED_BY.value: "realizes",
+    RelationType.MERGED_INTO.value: "merged_from",
+    RelationType.SEMANTIC_BRIDGE.value: "bridged_by",
+    RelationType.TRANSITION_TO.value: "transitioned_from",
+}
+
+
+# ---------------------------------------------------------------------------
+# Closed value sets
+#
+# Derived from the enums so the two can never drift. Used to build CHECK
+# constraints and shared with the API layer for validation.
+# ---------------------------------------------------------------------------
+
+WORLD_STATUS_VALUES = tuple(s.value for s in WorldStatus)
+CLAIM_STATUS_VALUES = tuple(s.value for s in ClaimStatus)
+SCOPE_VALUES = tuple(s.value for s in Scope)
+CLAIM_TYPE_VALUES = tuple(s.value for s in ClaimType)
+RELATION_TYPE_VALUES = tuple(s.value for s in RelationType)
+CHALLENGE_STATUS_VALUES = tuple(s.value for s in ChallengeStatus)
+CHALLENGE_RESOLUTION_VALUES = tuple(s.value for s in ChallengeResolution)
+
+SUBJECT_KINDS = (
+    "world",
+    "lexical_form",
+    "source",
+    "witness",
+    "segment",
+    "unit",
+    "relation",
+    "path",
+)
+
+EMBEDDING_TYPES = (
+    "world_full",
+    "world_definition",
+    "world_meaning",
+    "world_literary",
+    "world_philosophical",
+    "world_modern",
+    "world_questions",
+    "claim_text",
+    "claim_evidence",
+    "source_segment",
+    "source_translation",
+)
+
+EMBEDDING_ENTITY_TYPES = ("world", "claim", "source", "relation")
+
+CHALLENGE_ENTITY_TYPES = ("world", "claim", "relation")
+
+
+def _in_check(column: str, values: tuple[str, ...]) -> str:
+    """Render a SQL ``IN`` predicate for a CHECK constraint."""
+
+    rendered = ", ".join(f"'{value}'" for value in values)
+    return f"{column} IN ({rendered})"
+
+
+def enum_column(*, index: bool = True, nullable: bool = False) -> Column:
+    """Text column for a closed enumeration (Ontology v1.0 §2.1).
+
+    SQLModel maps a ``StrEnum`` annotation to a SQLAlchemy ``Enum`` column,
+    which persists the member *name* ("PROPOSED") rather than the *value*
+    ("proposed"). That silently disagrees with the wire format and with the
+    CHECK constraints. Declaring the column as ``Text`` stores the value,
+    which is what the ontology specifies and what the API returns.
+    """
+
+    return Column(Text, nullable=nullable, index=index)
 
 
 class Evidence(BaseModel):
@@ -264,6 +434,12 @@ class SemanticCluster(BaseModel):
 class World(SQLModel, table=True):
     """A semantic concept with multilingual identity."""
 
+    __tablename__ = "worlds"
+    __table_args__ = (
+        CheckConstraint(_in_check("status", WORLD_STATUS_VALUES), name="worlds_status_chk"),
+        CheckConstraint(_in_check("scope", SCOPE_VALUES), name="worlds_scope_chk"),
+    )
+
     world_id: str = SQLField(primary_key=True, index=True)
     canonical_term: str = SQLField(index=True)
     transliteration: str | None = None
@@ -277,8 +453,10 @@ class World(SQLModel, table=True):
     central_question: str | None = None
     central_axis: str | None = None
     semantic_dimensions: dict[str, str] = SQLField(default={}, sa_column=Column(JSON))
-    status: WorldStatus = SQLField(default=WorldStatus.PROPOSED, index=True)
-    scope: Scope = SQLField(default=Scope.GLOBAL, index=True)
+    status: WorldStatus = SQLField(
+        default=WorldStatus.PROPOSED, sa_column=enum_column()
+    )
+    scope: Scope = SQLField(default=Scope.GLOBAL, sa_column=enum_column())
     chapter_id: str | None = SQLField(default=None, index=True)
     cluster_id: str | None = SQLField(default=None, index=True)
     current_version_id: str | None = None
@@ -317,45 +495,30 @@ class WordFamily(BaseModel):
 # Relation
 # ---------------------------------------------------------------------------
 
-class RelationType(StrEnum):
-    """Semantic relationship taxonomy."""
-
-    PART_OF = "part_of"
-    CONTAINS = "contains"
-    BELONGS_TO = "belongs_to"
-    RELATED_TO = "related_to"
-    CONTRASTS_WITH = "contrasts_with"
-    OPPOSITE_OF = "opposite_of"
-    DEEPENS = "deepens"
-    PRECEDES = "precedes"
-    FOLLOWS = "follows"
-    EXPANDS = "expands"
-    WORD_FAMILY = "word_family"
-    DERIVED_FROM = "derived_from"
-    SYNONYM_OF = "synonym_of"
-    NEAR_SYNONYM_OF = "near_synonym_of"
-    ANTONYM_OF = "antonym_of"
-    USED_BY = "used_by"
-    DEVELOPED_BY = "developed_by"
-    SYMBOLIZED_BY = "symbolized_by"
-    THEME_OF = "theme_of"
-    SEMANTIC_BRIDGE = "semantic_bridge"
-    RING_LINK = "ring_link"
-    CHAPTER_ANCHOR = "chapter_anchor"
-    CLUSTER_ANCHOR = "cluster_anchor"
-    TRANSITION_TO = "transition_to"
-
-
 class Relation(SQLModel, table=True):
     """A meaning-bearing connection between two Worlds. A governed knowledge assertion."""
 
+    __tablename__ = "relations"
+    __table_args__ = (
+        CheckConstraint(
+            _in_check("relation_type", RELATION_TYPE_VALUES), name="relations_type_chk"
+        ),
+        CheckConstraint(_in_check("status", WORLD_STATUS_VALUES), name="relations_status_chk"),
+        CheckConstraint(_in_check("scope", SCOPE_VALUES), name="relations_scope_chk"),
+        CheckConstraint(
+            "source_world_id <> target_world_id", name="relations_no_self_chk"
+        ),
+    )
+
     relation_id: str = SQLField(primary_key=True, index=True)
-    relation_type: str = SQLField(index=True)
-    source_world_id: str = SQLField(foreign_key="world.world_id", index=True)
-    target_world_id: str = SQLField(foreign_key="world.world_id", index=True)
+    relation_type: str = SQLField(sa_column=enum_column())
+    source_world_id: str = SQLField(foreign_key="worlds.world_id", index=True)
+    target_world_id: str = SQLField(foreign_key="worlds.world_id", index=True)
     claim_id: str | None = None
-    status: WorldStatus = SQLField(default=WorldStatus.PROPOSED, index=True)
-    scope: Scope = SQLField(default=Scope.GLOBAL, index=True)
+    status: WorldStatus = SQLField(
+        default=WorldStatus.PROPOSED, sa_column=enum_column()
+    )
+    scope: Scope = SQLField(default=Scope.GLOBAL, sa_column=enum_column())
     provenance: list[dict[str, Any]] = SQLField(default=[], sa_column=Column(JSON))
     created_at: datetime = SQLField(default_factory=datetime.utcnow)
 
@@ -366,6 +529,11 @@ class Relation(SQLModel, table=True):
 
 class SemanticPath(SQLModel, table=True):
     """A first-class entity representing a meaningful journey through Worlds."""
+
+    __tablename__ = "semantic_paths"
+    __table_args__ = (
+        CheckConstraint(_in_check("scope", SCOPE_VALUES), name="semantic_paths_scope_chk"),
+    )
 
     path_id: str = SQLField(primary_key=True, index=True)
     title: str
@@ -391,16 +559,31 @@ class SubjectRef(SQLModel):
 class Claim(SQLModel, table=True):
     """The smallest active knowledge object in Ma'na. One assertion per claim."""
 
+    __tablename__ = "claims"
+    __table_args__ = (
+        CheckConstraint(_in_check("claim_type", CLAIM_TYPE_VALUES), name="claims_type_chk"),
+        CheckConstraint(_in_check("status", CLAIM_STATUS_VALUES), name="claims_status_chk"),
+        CheckConstraint(_in_check("scope", SCOPE_VALUES), name="claims_scope_chk"),
+        CheckConstraint(
+            _in_check("subject_kind", SUBJECT_KINDS), name="claims_subject_kind_chk"
+        ),
+        CheckConstraint(
+            "confidence >= 0.0 AND confidence <= 1.0", name="claims_confidence_chk"
+        ),
+    )
+
     claim_id: str = SQLField(primary_key=True, index=True)
-    claim_type: str = SQLField(index=True)
-    subject_kind: str
+    claim_type: str = SQLField(sa_column=enum_column())
+    subject_kind: str = SQLField(sa_column=enum_column())
     subject_reference_id: str = SQLField(index=True)
     subject_label: str | None = None
     predicate: str = SQLField(index=True)
     object: str | None = None
     text: str = SQLField(sa_column=Column(Text))
-    status: str = SQLField(default="proposed", index=True)
-    scope: str = SQLField(default="global", index=True)
+    status: str = SQLField(
+        default=ClaimStatus.PROPOSED.value, sa_column=enum_column()
+    )
+    scope: str = SQLField(default=Scope.GLOBAL.value, sa_column=enum_column())
     confidence: float = SQLField(default=0.0)
     evidence: list[dict[str, Any]] = SQLField(default=[], sa_column=Column(JSON))
     provenance: list[dict[str, Any]] = SQLField(default=[], sa_column=Column(JSON))
@@ -416,6 +599,13 @@ class Claim(SQLModel, table=True):
 class OntologyRegistryEntry(SQLModel, table=True):
     """Canonical World entry with aliases and translations."""
 
+    __tablename__ = "ontology_registry"
+    __table_args__ = (
+        CheckConstraint(
+            _in_check("status", WORLD_STATUS_VALUES), name="ontology_registry_status_chk"
+        ),
+    )
+
     world_id: str = SQLField(primary_key=True, index=True)
     canonical_term: str = SQLField(index=True)
     aliases: list[str] = SQLField(default=[], sa_column=Column(JSON))
@@ -423,7 +613,9 @@ class OntologyRegistryEntry(SQLModel, table=True):
     spellings: list[str] = SQLField(default=[], sa_column=Column(JSON))
     historical_forms: list[str] = SQLField(default=[], sa_column=Column(JSON))
     language_forms: dict[str, str] = SQLField(default={}, sa_column=Column(JSON))
-    status: str = SQLField(default="approved", index=True)
+    status: str = SQLField(
+        default=WorldStatus.APPROVED.value, sa_column=enum_column()
+    )
     extra_metadata: dict[str, Any] = SQLField(default={}, sa_column=Column(JSON))
 
 
@@ -434,10 +626,22 @@ class OntologyRegistryEntry(SQLModel, table=True):
 class EmbeddingProvenance(SQLModel, table=True):
     """Provenance record for an embedding."""
 
+    __tablename__ = "embedding_provenance"
+    __table_args__ = (
+        CheckConstraint(
+            _in_check("entity_type", EMBEDDING_ENTITY_TYPES),
+            name="embedding_provenance_entity_type_chk",
+        ),
+        CheckConstraint(
+            _in_check("embedding_type", EMBEDDING_TYPES),
+            name="embedding_provenance_type_chk",
+        ),
+    )
+
     embedding_id: str = SQLField(primary_key=True, index=True)
     entity_id: str = SQLField(index=True)
-    entity_type: str = SQLField(index=True)
-    embedding_type: str = SQLField(index=True)
+    entity_type: str = SQLField(sa_column=enum_column())
+    embedding_type: str = SQLField(sa_column=enum_column())
     model: str
     model_version: str
     dimensions: int
@@ -454,15 +658,23 @@ class Embedding(SQLModel, table=True):
     """Vector embedding with pgvector."""
 
     __tablename__ = "embeddings"
+    __table_args__ = (
+        CheckConstraint(
+            _in_check("entity_type", EMBEDDING_ENTITY_TYPES), name="embeddings_entity_type_chk"
+        ),
+        CheckConstraint(
+            _in_check("embedding_type", EMBEDDING_TYPES), name="embeddings_type_chk"
+        ),
+    )
 
     embedding_id: str = SQLField(primary_key=True, index=True)
     entity_id: str = SQLField(index=True)
-    entity_type: str = SQLField(index=True)
-    embedding_type: str = SQLField(index=True)
+    entity_type: str = SQLField(sa_column=enum_column())
+    embedding_type: str = SQLField(sa_column=enum_column())
     model: str
     model_version: str
     dimensions: int
-    vector: list[float] = SQLField(sa_column=Column("vector", JSON))  # pgvector stores as vector type
+    vector: list[float] = SQLField(sa_column=Column(EmbeddingVector(), nullable=False))
     source_version: str | None = None
     content_hash: str | None = None
     created_at: datetime = SQLField(default_factory=datetime.utcnow)
@@ -473,37 +685,39 @@ class Embedding(SQLModel, table=True):
 # Challenge (Governance)
 # ---------------------------------------------------------------------------
 
-class ChallengeStatus(StrEnum):
-    """Challenge lifecycle states."""
-
-    OPEN = "open"
-    UNDER_REVIEW = "under_review"
-    RESOLVED = "resolved"
-
-
-class ChallengeResolution(StrEnum):
-    """How a challenge was resolved."""
-
-    REAFFIRMED = "reaffirmed"      # Original stands, challenge rejected
-    SUPERSEDED = "superseded"      # New version created, old superseded
-    MERGED = "merged"              # Merged into another entity
-    WITHDRAWN = "withdrawn"        # Challenger withdrew
-
-
 class Challenge(SQLModel, table=True):
     """A challenge to an approved entity (World, Claim, Relation)."""
 
     __tablename__ = "challenges"
+    __table_args__ = (
+        CheckConstraint(
+            _in_check("entity_type", CHALLENGE_ENTITY_TYPES), name="challenges_entity_type_chk"
+        ),
+        CheckConstraint(
+            _in_check("status", CHALLENGE_STATUS_VALUES), name="challenges_status_chk"
+        ),
+        CheckConstraint(
+            "resolution IS NULL OR " + _in_check("resolution", CHALLENGE_RESOLUTION_VALUES),
+            name="challenges_resolution_chk",
+        ),
+        CheckConstraint(
+            "status <> 'resolved' OR (resolution IS NOT NULL "
+            "AND resolver_id IS NOT NULL AND resolved_at IS NOT NULL)",
+            name="challenges_resolved_complete_chk",
+        ),
+    )
 
     challenge_id: str = SQLField(primary_key=True, index=True)
-    entity_type: str = SQLField(index=True)  # "world" | "claim" | "relation"
+    entity_type: str = SQLField(sa_column=enum_column())  # "world" | "claim" | "relation"
     entity_id: str = SQLField(index=True)
     challenger_id: str
     reason: str = SQLField(sa_column=Column(Text))
     new_evidence: list[dict[str, Any]] = SQLField(default=[], sa_column=Column(JSON))
     suggested_correction: dict[str, Any] | None = SQLField(default=None, sa_column=Column(JSON))
-    status: str = SQLField(default=ChallengeStatus.OPEN.value, index=True)
-    resolution: str | None = None
+    status: str = SQLField(
+        default=ChallengeStatus.OPEN.value, sa_column=enum_column()
+    )
+    resolution: str | None = SQLField(default=None, sa_column=enum_column(nullable=True))
     resolver_id: str | None = None
     resolved_at: datetime | None = None
     created_at: datetime = SQLField(default_factory=datetime.utcnow)

@@ -9,6 +9,7 @@ from sqlmodel import SQLModel, create_engine, Session
 
 from maana_api.domain.models import Claim, ClaimStatus, ClaimType, Scope, World, WorldStatus
 from maana_api.services.claim_service import ClaimService
+from maana_api.services.validation import InvariantViolation
 from maana_api.services.world_service import WorldService
 
 
@@ -20,12 +21,63 @@ def session():
         yield session
 
 
-@pytest.fixture(autouse=True)
-def _mock_graph():
-    mock_graph = MagicMock()
-    mock_graph.create_world_node = AsyncMock()
-    with patch("maana_api.services.world_service.get_graph_projection", return_value=mock_graph):
-        yield mock_graph
+# A knowledge object with unknown origin cannot be canonized (Ontology I-018),
+# so every World that reaches approval in these tests carries provenance.
+PROVENANCE = [
+    {
+        "contributor_kind": "editor",
+        "contributor_id": "test-editor",
+        "method": "manual_entry",
+    }
+]
+
+EVIDENCE = [
+    {
+        "evidence_id": "E001",
+        "evidence_type": "text_span",
+        "source_ref": "test://source/1",
+        "text": "quoted passage",
+    }
+]
+
+
+def make_world(world_id: str, term: str, status: WorldStatus = WorldStatus.PROPOSED) -> World:
+    """A World that satisfies the pre-approval invariants."""
+    return World(
+        world_id=world_id,
+        canonical_term=term,
+        status=status,
+        scope=Scope.GLOBAL,
+        provenance=list(PROVENANCE),
+    )
+
+
+def make_claim(
+    claim_id: str,
+    subject_id: str = "W001",
+    claim_type: ClaimType = ClaimType.INTERPRETIVE,
+    status: str = ClaimStatus.PROPOSED.value,
+    with_evidence: bool = True,
+) -> Claim:
+    """A Claim that satisfies the pre-approval invariants."""
+    return Claim(
+        claim_id=claim_id,
+        claim_type=claim_type.value,
+        subject_kind="world",
+        subject_reference_id=subject_id,
+        predicate="deepens",
+        text="خیال deepens toward تصور.",
+        status=status,
+        scope=Scope.GLOBAL.value,
+        evidence=[dict(e) for e in EVIDENCE] if with_evidence else [],
+        provenance=list(PROVENANCE),
+    )
+
+
+@pytest.fixture
+def subject_world(session: Session) -> World:
+    """The World that claim fixtures assert about (Ontology I-039)."""
+    return WorldService(session=session).create_world(make_world("W001", "خیال"))
 
 
 def test_create_world(session: Session):
@@ -66,65 +118,69 @@ def test_list_worlds(session: Session):
 
 def test_approve_world(session: Session):
     service = WorldService(session=session)
-    world = World(
-        world_id="W005",
-        canonical_term="تصور",
-        status=WorldStatus.PROPOSED,
-        scope=Scope.GLOBAL,
-    )
-    service.create_world(world)
+    service.create_world(make_world("W005", "تصور"))
     approved = service.approve_world("W005")
     assert approved.status == WorldStatus.APPROVED
 
 
-def test_create_claim(session: Session):
-    service = ClaimService(session=session)
-    claim = Claim(
-        claim_id="C001",
-        claim_type=ClaimType.INTERPRETIVE,
-        subject_kind="world",
-        subject_reference_id="W001",
-        predicate="DEEPENS_TOWARD",
-        text="خیال deepens toward فنا.",
-        status=ClaimStatus.PROPOSED,
-        scope=Scope.GLOBAL,
+def test_approve_world_requires_provenance(session: Session):
+    """I-018: a World with unknown origin cannot be canonized."""
+    service = WorldService(session=session)
+    service.create_world(
+        World(world_id="W006", canonical_term="فنا", status=WorldStatus.PROPOSED)
     )
-    created = service.create_claim(claim)
+    with pytest.raises(InvariantViolation) as excinfo:
+        service.approve_world("W006")
+    assert excinfo.value.invariant == "I-018"
+
+
+def test_create_claim(session: Session, subject_world: World):
+    service = ClaimService(session=session)
+    created = service.create_claim(make_claim("C001"))
     assert created.claim_id == "C001"
 
 
-def test_get_claim(session: Session):
+def test_create_claim_requires_resolvable_subject(session: Session):
+    """I-039: a claim subject must resolve to a real entity."""
     service = ClaimService(session=session)
-    claim = Claim(
-        claim_id="C002",
-        claim_type=ClaimType.INTERPRETIVE,
-        subject_kind="world",
-        subject_reference_id="W001",
-        predicate="RELATED_TO",
-        text="خیال is related to تصور.",
-        status=ClaimStatus.PROPOSED,
-        scope=Scope.GLOBAL,
-    )
-    service.create_claim(claim)
+    with pytest.raises(InvariantViolation) as excinfo:
+        service.create_claim(make_claim("C001", subject_id="W_does_not_exist"))
+    assert excinfo.value.invariant == "I-039"
+
+
+def test_get_claim(session: Session, subject_world: World):
+    service = ClaimService(session=session)
+    service.create_claim(make_claim("C002"))
     fetched = service.get_claim("C002")
     assert fetched is not None
-    assert fetched.text == "خیال is related to تصور."
+    assert fetched.text == "خیال deepens toward تصور."
 
 
-def test_approve_claim(session: Session):
+def test_approve_claim(session: Session, subject_world: World):
     service = ClaimService(session=session)
-    claim = Claim(
-        claim_id="C003",
-        claim_type=ClaimType.INTERPRETIVE,
-        subject_kind="world",
-        subject_reference_id="W001",
-        predicate="RELATED_TO",
-        text="خیال is related to تصور.",
-        status=ClaimStatus.PROPOSED,
-        scope=Scope.GLOBAL,
-    )
-    service.create_claim(claim)
+    service.create_claim(make_claim("C003"))
     approved = service.approve_claim("C003")
+    assert approved.status == ClaimStatus.APPROVED
+
+
+def test_approve_claim_requires_evidence(session: Session, subject_world: World):
+    """I-049: assertion claims need evidence before approval."""
+    service = ClaimService(session=session)
+    service.create_claim(make_claim("C004", with_evidence=False))
+    with pytest.raises(InvariantViolation) as excinfo:
+        service.approve_claim("C004")
+    assert excinfo.value.invariant == "I-049"
+
+
+def test_approve_claim_without_evidence_allowed_for_editorial(
+    session: Session, subject_world: World
+):
+    """I-049: editorial claims are authorized by the ontology itself."""
+    service = ClaimService(session=session)
+    service.create_claim(
+        make_claim("C005", claim_type=ClaimType.EDITORIAL, with_evidence=False)
+    )
+    approved = service.approve_claim("C005")
     assert approved.status == ClaimStatus.APPROVED
 
 
@@ -147,14 +203,15 @@ def test_merge_worlds(session: Session):
     assert merged.status == WorldStatus.MERGED
 
 
-def test_create_relation(session: Session):
+def test_create_relation(session: Session, subject_world: World):
     from maana_api.services.relation_service import RelationService
     from maana_api.domain.models import Relation, RelationType
-    
+
     service = RelationService(session=session)
+    WorldService(session=session).create_world(make_world("W002", "تصور"))
     relation = Relation(
         relation_id="R001",
-        relation_type=RelationType.DEEPENS,
+        relation_type=RelationType.DEEPENS.value,
         source_world_id="W001",
         target_world_id="W002",
         status=WorldStatus.PROPOSED,
@@ -164,25 +221,46 @@ def test_create_relation(session: Session):
     assert created.relation_id == "R001"
 
 
-def test_approve_relation(session: Session):
+def test_create_relation_rejects_dangling_endpoint(session: Session, subject_world: World):
+    """I-023: a Relation endpoint must resolve to a real World."""
     from maana_api.services.relation_service import RelationService
     from maana_api.domain.models import Relation, RelationType
-    
+
     service = RelationService(session=session)
+    with pytest.raises(InvariantViolation) as excinfo:
+        service.create_relation(
+            Relation(
+                relation_id="R_bad",
+                relation_type=RelationType.DEEPENS.value,
+                source_world_id="W001",
+                target_world_id="W_missing",
+                status=WorldStatus.PROPOSED,
+            )
+        )
+    assert excinfo.value.invariant == "I-023"
+
+
+def test_approve_relation(session: Session, subject_world: World):
+    from maana_api.services.relation_service import RelationService
+    from maana_api.domain.models import Relation, RelationType
+
+    service = RelationService(session=session)
+    WorldService(session=session).create_world(make_world("W002", "تصور"))
     relation = Relation(
         relation_id="R002",
-        relation_type=RelationType.RELATED_TO,
+        relation_type=RelationType.RELATED_TO.value,
         source_world_id="W001",
         target_world_id="W002",
         status=WorldStatus.PROPOSED,
         scope=Scope.GLOBAL,
+        provenance=list(PROVENANCE),
     )
     service.create_relation(relation)
     approved = service.approve_relation("R002")
     assert approved.status == WorldStatus.APPROVED
 
 
-def test_create_challenge_on_claim(session: Session):
+def test_create_challenge_on_claim(session: Session, subject_world: World):
     from maana_api.services.challenge_service import ChallengeService
     from maana_api.domain.models import Challenge, ChallengeStatus, Claim, ClaimStatus
     
@@ -221,7 +299,7 @@ def test_create_challenge_on_claim(session: Session):
     assert challenged_claim.status == ClaimStatus.CHALLENGED.value
 
 
-def test_resolve_challenge_reaffirm(session: Session):
+def test_resolve_challenge_reaffirm(session: Session, subject_world: World):
     from maana_api.services.challenge_service import ChallengeService
     from maana_api.domain.models import Challenge, ChallengeResolution, ChallengeStatus, Claim, ClaimStatus
     
@@ -263,7 +341,7 @@ def test_resolve_challenge_reaffirm(session: Session):
     assert claim.status == ClaimStatus.APPROVED.value
 
 
-def test_resolve_challenge_supersede(session: Session):
+def test_resolve_challenge_supersede(session: Session, subject_world: World):
     from maana_api.services.challenge_service import ChallengeService
     from maana_api.domain.models import Challenge, ChallengeResolution, ChallengeStatus, Claim, ClaimStatus
     
@@ -305,7 +383,7 @@ def test_resolve_challenge_supersede(session: Session):
     assert "C103" in claim.version_history
 
 
-def test_list_challenges(session: Session):
+def test_list_challenges(session: Session, subject_world: World):
     from maana_api.services.challenge_service import ChallengeService
     from maana_api.domain.models import Challenge, ChallengeStatus, Claim, ClaimStatus
     
